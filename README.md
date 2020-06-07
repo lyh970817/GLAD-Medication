@@ -1,4 +1,4 @@
-# Medication-GLAD
+# GLAD-Medication
 
 <p align="center">
   <img src="./glad_logo.jpg" width="350" class="center">
