@@ -2,3 +2,5 @@
 *.feather
 *.rds
 *.hash
+*/graphs
+*.html
