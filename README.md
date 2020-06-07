@@ -7,7 +7,8 @@
 Analysis scripts, OSF registration form and manuscript for the medication
 questionnaire in the **Genetic Links to Depression and Anxiety (GLAD)** study.
 
-\
+<br/>
+
 * `src/` contains all the source code files which do not permanently manipulated
   the data.
 
