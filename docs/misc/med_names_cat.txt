@@ -1,0 +1,39 @@
+SSRI
+    Citalopram
+    Sertraline
+    Fluoxetine
+    Paroxetine
+    Escitalopram
+    Fluvoxamine
+NaSSA
+    Mirtazapine
+Noradrenergic and serotonergics (with significant muscarinic
+antagonism)
+    Amitriptyline
+    Nortriptyline
+    Clomipramine
+    Imipramine
+SNRI Duloxetine
+     Venlafaxine
+        Dosulepin
+        Lofepramine
+Serotonergics
+    Trazodone
+    Vortioxetine
+MAO-A
+    Moclobemide
+Irreversible non-selective
+    Phenelzine
+    Tranylcypromine
+    Isocarboxazid
+Noradrenergics
+    Mianserin
+/* Alpha-1 */
+/*     Doxepin */
+/*     Trimipramine */
+NRI
+    Reboxetine
+
+Dapoxetine
+Tryptophan
+Hypericum perforatum

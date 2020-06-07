@@ -1,0 +1,547 @@
+---
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    pandoc_args: ['-F', 'zotref', '-F', 'pandoc-citeproc']
+title: Predictors of Antidepressant Response and Side Effects in the Genetic Links to Anxiety and Depression (GLAD) Study
+subtitle: Analysis Report
+author: Yuhao Lin
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  comment = NA,
+  prompt = FALSE,
+  cache = FALSE,
+  asis = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 7,
+  fig.fullwidth = TRUE,
+  out.width = "180%"
+)
+options(knitr.kable.NA = "")
+options(width = 200)
+```
+
+```{r clear global environment, include = FALSE}
+remove(list = ls())
+```
+
+```{r loading packages, include = FALSE}
+setwd("../")
+library(ProjectTemplate)
+load.project()
+library(ggrepel)
+library(kableExtra)
+library(broom)
+```
+# Medication Clustering
+
+**Create a matrix of receptor binding for antidepressants based on the
+binding constants from wikipedia and try to cluster them based on this;
+compare this with the table that you found in the paper.**
+
+*From docs/dat_clean.md:*
+
+> * The raw table is from this [web
+>   page](https://en.wikipedia.org/wiki/Pharmacology_of_antidepressants).
+>
+> * The ">" signs were discarded and all NA values were recoded to 0s.
+
+## Visualisation with multidimensional scaling plot
+
+```{r}
+mds
+```
+
+I think a problem this plot reveals is that we cannot simply use Euclidean
+distance as the dissimilarity measure, otherwise because Venlafaxine and
+Fluvoxamine are so large in overall magnitude they would be driving the
+clustering.
+
+```{r}
+hc_p
+```
+
+So I think it might be reasonable to instead only consider the "direction"
+of each observation (i.e. how strong a medication binds to a receptor
+*relative to other receptors*).
+
+We first use cosine distance for this purpose, which measures the cosine of
+the angle between two observation vectors (so the magnitude of the vectors
+do not matter, only direction is considered).
+
+## Hierarchical clustering with cosine distance
+
+```{r}
+hc_cos_p
+```
+
+I think using four clusters seems somewhat reasonable.
+
+```{r}
+mds_cos_fun(4)
+```
+
+## K-means and hierarchical clustering with normalization
+
+I then divide each observation vector by their norms (i.e. magnitude) so to
+make them all fall on the circumference of a unit circle before clustering
+using Euclidean distance (I sort of came up with this myself so the
+legitamacy of this is a bit questionable. I did do some research and this
+technique seems to be called "L2 normalization" in machine learning
+terminologies. "L1" refers to using absolute distance and "L2"
+Eucledian distance which involves squaring).
+
+There is a derivation that shows [**squred** Eucledian distance on L2 normalized
+vectors are linearly connected to cosine
+distance](https://stats.stackexchange.com/questions/299013/cosine-distance-as-similarity-measure-in-kmeans).
+
+```{r}
+hc_norm_p
+```
+
+With this normalization we can do some K-means clustering. For some
+reason I cannot find a package that implements K-means clustering with
+cosine distance that I can use in a straightforward manner. The `Xmeans`
+function I was using is one of them but it crashes every time I tried to
+use cosine distance. It is written in C++ so I can't do anything about it.
+I'm suspecting if it is because in one of steps in K-means it requires to
+relocate the centroids to the center of a cluster, which is implictly
+minimizing the sum of within-cluster Eucledian distances to the centroids.
+So using Eucledian distance is the most conventional default.
+
+I tried out different number of Ks ranging from 1 to the number of
+observations, calculate the within-cluster sums of squres and put them on a
+scree plot.
+
+```{r}
+k_norm
+```
+
+I'm not sure how to interpret this plot - there is no "elbow" to it...
+
+But if we choose four clusters as before the results look similar.
+
+```{r}
+mds_norm_fun(4)
+```
+
+## Hierarchical clustering with inter-individual correlation
+
+Finally I use inter-individual correlation as distance measure. Using
+inter-individual correlation seems to be a common technique in genetics
+research but I'm not sure about elsewhere? I saw this being used in our
+second journal club article "Genes mirror geography within Europe"
+[@HVTZD3BJ#Novembre_Etal_2008_Genes].
+
+There is also a relationship between cosine distance and correlation in
+that cosine between two standardized variables is equal to correlation. In
+this paper "How Does Gene Expression Clustering Work?", the authors
+actually refer to the measure of cosine as "uncentered correlation"
+[@9X58LN4K].
+
+```{r}
+hc_cor_p
+```
+
+```{r}
+mds_cor_fun(4)
+```
+
+Overall these results all look somewhat similar. I tried a bit to compare
+it with the table that I pulled from the Argentina paper that you and
+Gerome didn't quite like (a list of medication categories can be found in
+*docs/misc/med_names_cat.txt*). I haven't been able to make much sense out
+of it, except the left cluster looks like it's to do with noradrenergics
+and the cluster high on the Y-axis seems to be serotonergics.
+
+# Descriptives
+
+**Compare the estimates of PHQ and GAD7 of the subsample that answered the
+medication questionnaire with the whole GLAD sample.**
+
+```{r}
+tidy(phq_t) %>%
+  select(-c("method", "alternative")) %>%
+  setNames(c("Difference", "Mean (all)", "Mean (subsample)", "Statistic", "p value", "df", "CI (low)", "CI (high)")) %>%
+  kable(digits = 3, caption = "PHQ in Sign-up and PHQ in Medication")
+```
+
+```{r}
+tidy(gad_t) %>%
+  select(-c("method", "alternative")) %>%
+  mutate_at(vars(p.value), ~ ifelse(. < 0.01, "<0.01", .)) %>%
+  setNames(c("Difference", "Mean (all)", "Mean (subsample)", "Statistic", "p value", "df", "CI (low)", "CI (high)")) %>%
+  kable(digits = 3, caption = "GAD in Sign-up and GAD in Medication")
+```
+
+## Descriptives table
+
+
+```{r}
+sum_tab %>%
+  ungroup() %>%
+  mutate(name = recode(name, !!!labels)) %>%
+  mutate(valid_pct = scales::percent(valid_pct)) %>%
+  setNames(c(
+    " ",
+    rep(c("Mean", "Median", "SD", "Range", "N Valid"), 2),
+    "Percentage Valid"
+  )) %>%
+  kable(format = "html", digits = 2) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, font_size = 14) %>%
+  add_header_above(c(" " = 1, "Male" = 5, "Female" = 5, " ")) %>%
+  footnote(
+    general = "(N) indicates that the variable is counts (e.g. number of diagnoses). ",
+    footnote_as_chunk = T, title_format = c("italic", "underline")
+  )
+```
+
+## Side effect indices
+
+**Make a plan how to deal with common side effects.**
+
+As I explained in the OSF document we will compute three indices by
+discarding side effects with prevalence higher than certain percentages and
+could be confounded by residual or discontinuation-related symptoms or
+co-morbid physical diseases.
+
+*From docs/dat_clean.md:*
+
+>   - We compute three side effect indices, which are the average number of side
+>     effects across medications discounting those side effects having higher than
+>     respectively 20%, 15% and 10% (*SE_20*, *SE_15* and *SE_10*) prevalence and
+>     can be considered as false positives, in that they could be thought of as
+>     residual symptoms or discontinuation-related symptoms (descriptions of these
+>     can be found in @9D3H65H5#Kelly_Posternak_Jonathan_2008_Toward), or could be
+>     counfounded by co-morbid physical diseases [see
+>     @TTV2957L#Uzun_Etal_2009_Depressive for descriptions of such side effects].
+
+The originally decided percentages (70%, 60% and 50%) are not plausible,
+because prevalence of the most common side effects are no more than
+30% or so. This figure is consistent with previous research
+[@9D3H65H5#Kelly_Posternak_Jonathan_2008_Toward].
+
+> The most common side effects reported by patients in the study by Hu et
+> al were drowsiness (38%), dry mouth (34%), and sexual dysfunction (34%).
+
+Here is a plot of side effect prevalence.
+
+The percentages represent the number of instances of a side effect divided
+by the total number of instances where participants took a medication.
+
+The fill colour indicates the side effects discarded at each percentage level.
+
+```{r, fig.width = 15, fig.height = 13}
+perct_sef_plot
+```
+
+## Side effect prevalence plot
+
+**Plot medication side effect prevalence by medication category.**
+
+We don't have the category defined from the clustering yet, so I made
+preliminary plots based on categories from the Argentina paper. These
+categories are to be found in *docs/misc/med_names_cat.txt*.
+
+The percentages represent the number of instances of a side effect divided
+by the total number of instances where participants took a medication from
+a certain category.
+
+A Clopper-Pearson confidence interval (from `binom.test`) was constructed
+for each percentage. Percentages with an interval wider than 0.4 were
+discarded. Any zero percentages were also discarded.
+
+Note that this interval is an exact confidence interval rather than the
+asymptotic interval based on the Z statistic, so should work for small
+samples. But it can be quite conservative (See
+[here](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval)).
+
+```{r, fig.width = 15, fig.height = 13}
+med_plot
+```
+
+```{r, fig.width = 15, fig.height = 13}
+med_plot_sex
+```
+
+## Processing of treatment response variables
+
+**Think about how to define "treatment response" potentially combination of different variables?**
+
+It would be nice to have one or a few "treatment response" variables
+defined as the combination of others, because at the moment I'm just
+including all the individual variables and this means we need to run a
+dozen of models.  I'm thinking of just browsing through all the papers that
+measure side effects and see if they did something similar. Would this be a
+good idea and what studies would be a good place to start?
+
+Currently the only processing I've done is just averaging and binning some
+variables.
+
+*From docs/dat_clean.md:*
+
+> Binning was applied to some variables computed by averaging ordinal
+> variables taking only few levels, since as expected such averaging
+> produced variables concentrated at certain values but sparse elsewhere.
+> The number of bins were determined by inspection of the stem-and-leaf
+> plots and histograms and were selected such that the cut-offs are most
+> natural and with a sufficient number of bins to minimize loss of
+> information yet retaining an appropriate number of observations in each
+> bin.
+
+**Before binning:**
+
+```{r, fig.width = 9,  fig.height = 3}
+hists_var_uncut
+```
+
+**After binning:**
+
+```{r, fig.width = 9,  fig.height = 3}
+hists_var_cut
+```
+
+## Histograms of variables
+
+```{r, fig.width = 14, fig.height = 12}
+hists
+```
+
+## Visualising correlations
+
+**Add trauma to correlation matrix**
+
+I don't know why I haven't done this. I've got the scoring algorithm from
+Christ and looked at it. Will look again.
+
+**Include family history (psychiatric disorders in first-degree relatives) in analysis**
+
+Okay so I'm not sure if what I did was just "first-degree" relatives. Will check again.
+
+**Add recurrent and single-episode lifetime depression to the correlation matrix**
+
+```{r, fig.width = 13, fig.height = 13, out.width = "300%"}
+cor_plot
+```
+
+According to the @DCJ4UCAK#Jin_YangWallentin_2017_Asymptotic polychoric
+correlations can be severely biased when the latent distribution is skewed
+which is the case for a number of variables in the data. The bias is
+generally towards zero, so these correlations are to be interpreted as
+underestimates.
+
+# Analyses
+
+## Confirmatory Analysis 1
+
+For confirmatory analysis 1 we seek to identify correlates of
+antidepressants side effect severity (See *manuscripts/OSF* for detail).
+
+### Model 1
+
+**Fit univariate regression models with covariates and independent variables.**
+
+The first dependent variables for analysis 1 are:
+
+*From manuscripts/OSF.md:*
+
+> * Side effect severity indices (*SE_20*, *SE_15* and *SE_10*)
+>
+>   - We compute three side effect indices, which are the average number of side
+>     effects across medications discounting those side effects having higher than
+>     respectively 20%, 15% and 10% (*SE_20*, *SE_15* and *SE_10*) prevalence and
+>     can be considered as false positives, in that they could be thought of as
+>     residual symptoms or discontinuation-related symptoms (descriptions of these
+>     can be found in @9D3H65H5#Kelly_Posternak_Jonathan_2008_Toward), or could be
+>     counfounded by co-morbid physical diseases [see
+>     @TTV2957L#Uzun_Etal_2009_Depressive for descriptions of such side effects].
+
+Below are the coefficients from univariate models where we fit a logistic
+regression model for $Y = 0$ and a gamma GLM with log link for $Y > 0$.
+Inferential statistics are given by the Wald test.
+
+```{r}
+kable_hurd(hm_20_uni)
+```
+
+```{r}
+kable_hurd(hm_15_uni)
+```
+
+```{r}
+kable_hurd(hm_10_uni)
+```
+
+**Below are the multivariate models**. I looked at the diagnostics for
+these multivariate models and they all seem to fit quite well with regards
+to residual distributions. There seems to be, however, some
+multicollinearity going on with those anxiety and depression related
+variables.
+
+```{r}
+kable_hurd(hm_20)
+```
+
+```{r}
+kable_hurd(hm_15)
+```
+
+```{r}
+kable_hurd(hm_10)
+```
+
+It's interesting though this paper "Modelling Non-negative Data with
+Clumping at Zero: A Survey" [@62XAWTGG#Y_A_2002_Modeling] suggests that it
+is also plausible to apply binning to data whilst treating zeroes as an
+independent category and fit proportional odds models (which I'm using
+below not for continuous but for categorical data).
+
+The following two dependent variables in analysis 1 are ordinal variables
+for which I used a partial proportional odds model. The formulation the
+model is given by
+
+$$logit(P(Y_{i} \leq j)) = \sum{x_i \beta} + \sum{z_i \beta_j} + \theta_j$$
+
+Suppose that $Y_i = j (j = 1, 2, 3, ...J)$, this amounts to fitting $J - 1$
+logistic regression models ($logit(P_i \leq 1)$, $logit(P_i \leq 2)$, ...,
+$logit(P_i \leq J - 1)$. $x$s are a set of predictors with constant effect
+$\beta$s in all the logistic models and $z$s a set of predictors with
+different effects $\beta_j$s across the models (i.e. across different levels
+of the response variable). $\theta_j$ is the intercept for each model which
+also differs by level.
+
+The constant $\beta$s are termed **ordinal effects**. $\beta_j$s, which are
+free to vary depending on the level of $Y$ are termed **nominal effects**.
+
+The package implements a likelihood ratio test for whether an effect is
+ordinal, by comparing the models where the effect is specified to be ordinal or
+nominal. I first entered all variables as ordinal, ran the test and re-entered the
+significant variables as nominal effects.
+
+**Fit univariate regression models with covariates and independent variables.**
+
+I cannot run univariate regressions with the package I'm using for this
+model, because it does not allow specifying only nominal effects - perhaps
+the package author thinks that with only nominal effects the model isn't
+"ordinal" any more in a sense that the direction of the effect might not
+stay the same across levels? It's likely that there are other packages that
+can do this though. Would this be necessary to do?
+
+### Model 2
+
+The second dependent variable for analysis 1 is:
+
+*From manuscripts/OSF.md:*
+
+> - Self-report side effect severity rating (1-5 Likert scale)
+>
+>   Item in questionnaire: *"Overall, how would you rate the side-effects of
+>   taking antidepressants?"*
+
+
+```{r}
+kable_prop(m_sef)
+```
+
+### Model 3
+
+The third dependent variable for analysis 1 is:
+
+*From manuscripts/OSF.md:*
+
+> * Likelihood of intolerance
+>
+>   - Computed by averaging treatment intolerance (binary) across medications.
+
+The measure originally collected in the questionnaire is:
+
+> - Treatment intolerance for each antidepressant (binary)
+>
+>   Example item in questionnaire: *"Did you have to stop taking any of these
+>   medication(s) because of side effects? - Citalopram (e.g. Cipramil)"*
+
+```{r}
+kable_prop(m_into)
+```
+
+## Confirmatory Analysis 2
+
+For confirmatory analysi 2 we seek to determine if effectiveness is
+assocaited with side effect severities.
+
+### Model 1
+
+The first dependent variable for confirmatory analysis 2 is the average effectiveness index.
+
+*From manuscripts/OSF.md:*
+
+> * Average effectiveness index
+>
+>   - Computed by averaging self-report effectiveness rating (0-2 Likert scale)
+>     across medications.
+
+*From docs/dat_clean.md:*
+
+> As this variable is computed from several (the number depends on how many
+> medications a participant has taken in life time, which is unlikely to be
+> very high) variables having only three levels, we anticipated the values of
+> this variable to be dense at 1 and 0.5 intervals but sparse elsewhere.
+> Therefore, it would be more reasonable to bin this variable at 0.5 cut-offs,
+> recoding it into an ordinal variable of six levels.
+
+```{r}
+kable_prop(m_eff)
+```
+
+### Model 2
+
+The second dependent variable for confirmatory analysis 2 is the average effectiveness index.
+
+> - Self-report overall benefit of taking antidepressants (1-5 Likert scale)
+>
+>   Item in questionnaire: *"Overall, how would you rate the benefits of taking
+>   antidepressants?"*
+
+```{r}
+kable_prop(m_ben)
+```
+
+### Model 3
+
+The second dependent variable for confirmatory analysis 2 is the average effectiveness index.
+
+*From manuscripts/OSF.md:*
+
+> * Likelihood of remission
+>
+>   - Computed by averaging remission (binary)) across medications.
+
+Original measure from questionnaire:
+
+> - Remission for each antidepressant (binary)
+>
+>   Example item in questionnaire: *"After taking Citalopram (e.g. Cipramil) for
+>   a period of time, did you ever experience any further symptoms associated
+>   with the condition for which you were prescribed antidepressants?"*
+
+*From docs/dat_clean.md:*
+
+> This variable was cut into three bins.
+
+```{r}
+kable_prop(m_remi)
+```
+
+I only included the models that you saw last time and those that I think we
+will most likely run in the end. There are more models I proposed in the
+OSF, but since we have not decided on a multiple testing procedure yet I'm
+not sure if I should run them now. The functions for them are written so
+once we have the right variables running them should be instantaneous.
+
+# References

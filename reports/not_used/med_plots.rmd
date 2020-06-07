@@ -1,0 +1,547 @@
+---
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    pandoc_args: ['-F', 'zotref', '-F', 'pandoc-citeproc']
+title: Untitled
+subtitle: Untitled
+author: Yuhao Lin
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  comment = NA,
+  prompt = FALSE,
+  cache = FALSE,
+  include = FALSE
+)
+```
+
+```{r clear global environment, include = FALSE}
+remove(list = ls())
+```
+
+```{r loading packages, include = FALSE}
+library(tidyverse)
+library(Hmisc)
+library(sjPlot)
+sef_options <- readLines("./sef_options.txt")
+sef_optnames <- readLines("./sef_optnames.txt")
+med_names <- readLines("./med_names.txt")
+anxi <- c("Diazepam", "Lorazepam", "Clonazepam", "Nitrazepam")
+sti <- c("Atomexatine", "Guanfacine", "Lisdexamfetamine", "Methylphenidate", "Dexamfetomine")
+ane <- c("Topiramate", "Zonisamide")
+ano <- c("Orlistat")
+and <- c("Metformin", "Sibutramine")
+slp <- c("Temazepam")
+```
+
+```{r}
+dat <- read_csv("./MED_Renamed.csv") %>%
+  rename(Sex = MED.SEX.1.0)
+dat["Sex"] <- factor(dat[["Sex"]],
+  levels = c(1, 0),
+  labels = c("Female", "Male")
+)
+palette <- c("#efc00b", "#b7dee8")
+
+is_rowna <- function(data) {
+  apply(data, 1, function(x) {
+    all(is.na(x))
+  })
+}
+
+get_medname <- function(varname) {
+  short_mednames <- str_split(varname, pattern = "\\.") %>%
+    map_chr(nth, 3) %>%
+    tolower()
+  name <- map(short_mednames, function(x) {
+    # We only need the first match where the first six letters
+    # (not six letters in the middle) are matched.
+    name <- grep(x, med_names, v = T, ignore.case = T)[1]
+    if (is.na(name)) {
+      return(x)
+    } else {
+      return(name)
+    }
+  })
+  return(name)
+}
+```
+
+```{r}
+diagnoses <- c(
+  "MDD", "BIP", "GAD", "PAN", "OCD", "SPE",
+  "BDD", "PREM", "MENO", "PAIN", "SMOK",
+  "SLEEP", "RLS", "EJAC", "ADHD", "BN",
+  "BED", "OTHER", "NOTSURE", "PTSD", "DONTKNOW", "SCZA", "SCZ", "PSY",
+  "EPIL", "IRR", "TIC", "NARC", "AS"
+)
+
+diag_cols <- map(diagnoses, function(x) {
+  unique(grep(paste0("DX.", x), colnames(dat), v = T))
+}) %>% unlist()
+
+valid_n <- sum(!is_rowna(dat[diag_cols]))
+na <- sum(is_rowna(dat[diag_cols]))
+
+female_n <- nrow(dat[!is_rowna(dat[diag_cols]) & dat[["Sex"]] == "Female", ])
+male_n <- nrow(dat[!is_rowna(dat[diag_cols]) & dat[["Sex"]] == "Male", ])
+
+diagnoses_names <- c(
+  "Depression", "Bipolar disorder", "Generalized anxiety disorder",
+  "Panic disorder", "Obsessive compulsive disorder", "Specific phobia",
+  "Body dysmorphic disorder", "Premenstrual dysphoric mood disorder",
+  "Menopausal symptoms", "Chronic pain", "Quitting smoking",
+  "Sleep problems", "Restless legs syndrome", "Premature ejaculation",
+  "ADD/ADHD", "Bulimia nervosa", "Binge-eating disorder", "Other",
+  "I'm not sure", "PTSD", "Don't know", "Schizoaffective disorder",
+  "Schizophrenia", "Psychosis", "epilepsy", "Irritability/agitation",
+  "Tics", "Narcolepsy", "Appetite suppression"
+)
+
+n_diag_female <- map_dbl(diagnoses, function(x) {
+  sum(as.numeric(rowSums(dat[dat[["Sex"]] == "Female", grep(x, colnames(dat))], na.rm = T) >= 1))
+}) %>%
+  cbind("Female") %>%
+  cbind(diagnoses_names)
+
+n_diag_male <- map_dbl(diagnoses, function(x) {
+  sum(as.numeric(rowSums(dat[dat[["Sex"]] == "Male", grep(x, colnames(dat))], na.rm = T) >= 1))
+}) %>%
+  cbind("Male") %>%
+  cbind(diagnoses_names)
+
+n_diag <- rbind(n_diag_female, n_diag_male)
+
+n_diag_df <- tibble(Count = as.numeric(n_diag[, 1]), Sex = factor(n_diag[, 2]), Diagnosis = n_diag[, 3]) %>%
+  group_by(Sex) %>%
+  arrange(desc(Count))
+```
+
+```{r diagnosis count, include = TRUE, fig.width = 9, fig.height = 9}
+ggplot(
+  data = n_diag_df,
+  aes(x = reorder(Diagnosis, Count), y = Count, fill = Sex)
+) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  scale_fill_manual(values = palette) +
+  scale_color_manual(values = palette) +
+  theme(
+    panel.grid.major.x = element_line(
+      size = 0.5,
+      linetype = "dashed",
+      colour = "gray"
+    ),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(colour = "black", size = 12),
+    axis.text.y = element_text(colour = "black", size = 12),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.background = element_blank(),
+    legend.position = "bottom"
+  ) +
+  labs(
+    y = "Frequency",
+    title = "Diagnoses Count",
+    subtitle = paste("n = ", valid_n,
+      "; NA = ", na,
+      "; n(total) = ", nrow(dat),
+      "; n(female) = ", female_n,
+      "; n(male) = ", male_n,
+      sep = ""
+    ),
+    fill = "Sex",
+    size = 15
+  ) +
+  geom_text(
+    aes(label = Count),
+    position = position_dodge(width = 0.9),
+    hjust = -0.25, color = "black", size = 3
+  ) +
+  coord_flip(clip = "off")
+```
+
+```{r side effect per category}
+dat_sef <- dat[grep("\\.SEF.", colnames(dat))]
+
+categories <- colnames(dat_sef) %>%
+  str_split("\\.") %>%
+  map_chr(nth, 2) %>%
+  unique() %>%
+  .[. != "NA"]
+
+sef_all <- colnames(dat_sef) %>%
+  str_split("\\.") %>%
+  map_chr(nth, 6)
+
+categories_all <- colnames(dat_sef) %>%
+  str_split("\\.") %>%
+  map_chr(nth, 2)
+
+meds_all <- colnames(dat_sef) %>%
+  str_split("\\.") %>%
+  map_chr(nth, 3)
+
+med_taken <- paste("MED", categories_all, meds_all, sep = ".") %>%
+  .[. != "MED.NA.CLICK "] %>%
+  unique()
+
+per_sef <- function(category) {
+  sef <- sef_all[grep(category, colnames(dat_sef))] %>%
+    unique()
+
+  sef_renamed <- sef_optnames[sef_all %in% sef] %>% unique()
+
+  dat_med_male <- dat[c("Sex", med_taken)] %>%
+    select(Sex, contains(category)) %>%
+    filter(Sex == "Male") %>%
+    select(-Sex) %>%
+    select(-matches("NEVER|NONE"))
+
+  total_ins_male <- sum(rowSums(dat_med_male, na.rm = T))
+
+  sef_n_male <- map_dbl(sef, function(s) {
+    sef_col <- paste0(category, ".*", s)
+    dat_sef_male <-
+      dat_sef[grep(sef_col, colnames(dat_sef))] %>%
+      bind_cols(dat["Sex"]) %>%
+      filter(Sex == "Male") %>%
+      select(-Sex)
+    sum(colSums(dat_sef_male, na.rm = T))
+  })
+
+  sef_per_male <- cbind(sef_n_male / total_ins_male, sef_renamed, "Male")
+
+  dat_med_female <- dat[c("Sex", med_taken)] %>%
+    select(Sex, contains(category)) %>%
+    filter(Sex == "Female") %>%
+    select(-Sex) %>%
+    select(-matches("NEVER|NONE"))
+
+  total_ins_female <- sum(rowSums(dat_med_female, na.rm = T))
+
+  sef_n_female <- map_dbl(sef, function(s) {
+    sef_col <- paste0(category, ".*", s)
+    dat_sef_female <-
+      dat_sef[grep(sef_col, colnames(dat_sef))] %>%
+      bind_cols(dat["Sex"]) %>%
+      filter(Sex == "Female") %>%
+      select(-Sex)
+    sum(colSums(dat_sef_female, na.rm = T))
+  })
+
+  sef_per_female <- cbind(sef_n_female / total_ins_female, sef_renamed, "Female")
+  sef_per <- rbind(sef_per_male, sef_per_female)
+  sef_per_df <- tibble(
+    "Percentage" = as.numeric(sef_per[, 1]),
+    "SEF" = sef_per[, 2],
+    "Sex" = sef_per[, 3]
+  )
+  return(sef_per_df)
+}
+
+category_titles <- c(
+  "Antidepressants", "Mood Stablizers",
+  "Stimulants", "Anti-epileptic",
+  "Anti-obesity", "Anti-diabetics",
+  "Anxiolytic", "Sleep"
+) %>% setNames(categories)
+```
+
+This is the number of instances of a side effect divided by the number of
+instances of taking medications belonging to a category.
+
+* `r category_titles[3]`: `r sti`
+* `r category_titles[4]`: `r ane`
+* `r category_titles[5]`: `r ano`
+* `r category_titles[6]`: `r and`
+* `r category_titles[7]`: `r anxi`
+* `r category_titles[8]`: `r slp`
+
+```{r side effect per medication category, include = TRUE, fig.width = 9, fig.height = 9}
+for (category in categories) {
+  sef_type <- unique(per_sef(category)[["SEF"]])
+  cut_factor <- cut2(seq_along(sef_type), m = 10)
+
+  category_col <- grep(category, med_taken, v = T)
+  category_valid_n <- sum(!is_rowna(dat[category_col]))
+  category_na <- sum(is_rowna(dat[category_col]))
+
+  category_female_n <-
+    nrow(dat[!is_rowna(dat[category_col]) & dat[["Sex"]] == "Female", ])
+  category_male_n <-
+    nrow(dat[!is_rowna(dat[category_col]) & dat[["Sex"]] == "Male", ])
+
+  for (i in levels(cut_factor)) {
+    is <- which(cut_factor == i)
+    sef_plotdat <- filter(
+      per_sef(category),
+      SEF %in% sef_type[is]
+    )
+    sef_plot <- ggplot(
+      data = sef_plotdat,
+      aes(x = SEF, y = Percentage, fill = Sex)
+    ) +
+      geom_bar(stat = "identity", position = position_dodge()) +
+      scale_fill_manual(values = palette) +
+      scale_color_manual(values = palette) +
+      theme(
+        panel.grid.major.x = element_line(
+          size = 0.5,
+          linetype = "dashed",
+          colour = "gray"
+        ),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(colour = "black", size = 12),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.background = element_blank(),
+        legend.position = "bottom"
+      ) +
+      labs(
+        title = paste(
+          "Percentage Suffering From Side Effects in",
+          category_titles[category]
+        ),
+        subtitle = paste("n = ", category_valid_n,
+          "; n(female) = ", category_female_n,
+          "; n(male) = ", category_male_n,
+          sep = ""
+        ),
+        fill = "Sex"
+      ) +
+      geom_text(
+        aes(label = paste0(round(Percentage, digits = 3) * 100, "%")),
+        position = position_dodge(width = 0.9),
+        hjust = -0.25, color = "black", size = 3
+      ) +
+      coord_flip(clip = "off")
+    print(sef_plot)
+  }
+}
+```
+
+Average in the sense that a participant can take multiple medications
+(within a category) and we're averaging the number of side effects by
+the number of medications taken.
+
+```{r average side effects per category, include = TRUE, fig.width = 9, fig.height = 9}
+avg_sef <- function(category) {
+  sef <- sef_all[grep(category, colnames(dat_sef))] %>%
+    unique()
+
+  dat_med_male <- dat[c("Sex", med_taken)] %>%
+    select(Sex, contains(category)) %>%
+    filter(Sex == "Male") %>%
+    select(-Sex)
+
+  n_dx_male <- rowSums(dat_med_male, na.rm = T)
+
+  tsef_col <- unlist(map(
+    paste0(category, ".*", sef),
+    grep, colnames(dat_sef)
+  ))
+
+  dat_tsef_male <-
+    dat_sef[tsef_col] %>%
+    bind_cols(dat["Sex"]) %>%
+    filter(Sex == "Male") %>%
+    select(-Sex)
+
+  n_sef_male <- rowSums(dat_tsef_male, na.rm = T)
+
+  avg_sef_male <- (n_sef_male / n_dx_male) %>%
+    subset(!is.nan(.)) %>%
+    setNames(rep("Male", length(.))) %>%
+    enframe(name = "Sex")
+
+  dat_med_female <- dat[c("Sex", med_taken)] %>%
+    select(Sex, contains(category)) %>%
+    filter(Sex == "Female") %>%
+    select(-Sex)
+
+  n_dx_female <- rowSums(dat_med_female, na.rm = T)
+
+  dat_tsef_female <-
+    dat_sef[tsef_col] %>%
+    bind_cols(dat["Sex"]) %>%
+    filter(Sex == "Female") %>%
+    select(-Sex)
+
+  n_sef_female <- rowSums(dat_tsef_female, na.rm = T)
+
+  avg_sef_female <- (n_sef_female / n_dx_female) %>%
+    subset(!is.nan(.)) %>%
+    setNames(rep("Female", length(.))) %>%
+    enframe(
+      name = "Sex",
+    )
+
+  avg_sef <- bind_rows(avg_sef_female, avg_sef_male)
+  return(avg_sef)
+}
+
+for (category in categories) {
+  category_col <- grep(category, med_taken, v = T)
+  category_valid_n <- sum(!is_rowna(dat[category_col]))
+
+  category_female_n <-
+    nrow(dat[!is_rowna(dat[category_col]) & dat[["Sex"]] == "Female", ])
+  category_male_n <-
+    nrow(dat[!is_rowna(dat[category_col]) & dat[["Sex"]] == "Male", ])
+
+  avg_sefplotdat <- avg_sef(category)
+
+  stats_sex <- avg_sefplotdat %>%
+    group_by(Sex) %>%
+    dplyr::summarize(
+      grp.mean = mean(value),
+      grp.sd = sd(value)
+    )
+
+  avg_sefplot <- ggplot(
+    data = avg_sefplotdat,
+    aes(x = value)
+  ) +
+    geom_histogram(aes(color = Sex, fill = Sex, alpha = 0.5),
+      binwidth = 1,
+      position = "identity"
+    ) +
+    scale_fill_manual(values = palette) +
+    scale_color_manual(values = palette) +
+    theme(
+      panel.grid.major.y = element_line(
+        size = 0.5,
+        linetype = "dashed",
+        colour = "gray"
+      ),
+      axis.text.x = element_text(colour = "black", size = 12),
+      axis.text.y = element_text(colour = "black", size = 12),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+      panel.background = element_blank(),
+      legend.position = "bottom"
+    ) +
+    guides(alpha = FALSE, color = FALSE) +
+    geom_vline(data = stats_sex, aes(xintercept = grp.mean, colour = Sex), size = 0.5, linetype = "dashed") +
+    geom_vline(data = stats_sex, aes(xintercept = grp.mean + grp.sd, colour = Sex), size = 0.5, linetype = "dotted") +
+    geom_vline(data = stats_sex, aes(xintercept = grp.mean - grp.sd, colour = Sex), size = 0.5, linetype = "dotted") +
+    labs(
+      x = "Average Numer of Side Effects",
+      y = "Count",
+      title = paste(
+        "Average Numer of Side Effects For",
+        category_titles[category]
+      ),
+      subtitle = paste0(
+        "Dashed line represents mean and dotted lines represent  1 standard deviation\n",
+        "n(female) = ", category_female_n,
+        "; n(male) = ", category_male_n
+      ),
+      fill = "Sex"
+    )
+  print(avg_sefplot)
+}
+```
+
+```{r effectiveness rating female, include = TRUE, fig.width = 9, fig.height = 9, warning = FALSE}
+for (category in categories[1:2]) {
+  dat_cat_eff <- dat %>%
+    filter(Sex == "Female") %>%
+    select(contains(category)) %>%
+    select(contains("EFF")) %>%
+    map_df(factor, levels = 0:2)
+
+  order_by_n <- order(
+    map_int(dat_cat_eff, ~ sum(!is.na(.x)))
+  )
+  dat_cat_eff <- dat_cat_eff %>%
+    select(order_by_n)
+  plot <- plot_stackfrq(dat_cat_eff,
+    title = paste(
+      category_titles[category],
+      "Effectiveness Rating"
+    ),
+    axis.labels = get_medname(colnames(dat_cat_eff))
+  )
+  print(plot)
+}
+```
+
+```{r effectiveness rating male, include = TRUE, fig.width = 9, fig.height = 9, warning = FALSE}
+for (category in categories[1:2]) {
+  dat_cat_eff <- dat %>%
+    filter(Sex == "Male") %>%
+    select(contains(category)) %>%
+    select(contains("EFF")) %>%
+    map_df(factor, levels = 0:2)
+
+  order_by_n <- order(
+    map_int(dat_cat_eff, ~ sum(!is.na(.x)))
+  )
+  dat_cat_eff <- dat_cat_eff %>%
+    select(order_by_n)
+  plot <- plot_stackfrq(dat_cat_eff,
+    title = paste(
+      category_titles[category],
+      "Effectiveness Rating"
+    ),
+    axis.labels = get_medname(colnames(dat_cat_eff))
+  )
+  print(plot)
+}
+```
+
+```{r}
+dat_dx <- dat[grep("\\.DX.", colnames(dat))] %>%
+  select(-matches("NEVER|NONE|OTHERRE|OTHERADDRE|OTHERMSTRE|OTHER")) %>%
+  select(-matches("START|DUR"))
+
+dx_uniq <- colnames(dat_dx) %>%
+  str_split("\\.") %>%
+  map_chr(nth, 5) %>%
+  unique() %>%
+  .[!. %in% c("DONTKNOW", NA)]
+
+# The idea is, for each unique dx, find who indicates he has this dx and
+# what medications are used for this dx. Then for each participant with
+# this dx, find for each medication related to this dx (from the dx slice
+# colnames), the number of sef from the sef slice (by matching the
+# medication names), obtain the sum of the number of sef across the
+# medications and divide this by the number of medications taken. Finally,
+# this average numbers of side effects for participants across the
+# medications taken for this diagnosis are averaged across the number of
+# participants with this diagnosis to obtain the average number of side
+# effects experienced "resulted" from a diagnosis.
+
+# I'm a bit short of time to write code for this...
+
+dx <- "MDD"
+map(dx_uniq, function(dx) {
+  i <- dat_dx %>%
+    select(contains(dx)) %>%
+    is_rowna() %>%
+    !.
+
+  n_med_male <- dat[i, c("Sex", med_taken)] %>%
+    filter(Sex == "Male") %>%
+    select(-Sex) %>%
+    select(-matches("NEVER|NONE")) %>%
+    rowSums(na.rm = T)
+
+  total_ins_male <- sum(rowSums(dat_med_male, na.rm = T))
+
+  n_dx_sef <- dat_sef[i, ] %>%
+    bind_cols(dat["Sex"]) %>%
+    filter(Sex == "Male") %>%
+    # What to remove?
+    select(-matches("NEVER|NONE")) %>%
+    rowSums()
+})
+```
+

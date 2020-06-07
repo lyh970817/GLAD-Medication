@@ -1,0 +1,22 @@
+* Add questionnaire name to the histograms and everything
+
+* Life time depression - wrong variable
+
+* t-tests between males and females - if not significant no need for covariate
+
+* Side effect indices - sensitivity analysis
+
+* Side effect prevalence plot - better colours and shiny apps to toggle
+  medication type
+
+* Potentially put some relevant description of results in markdown
+
+* Results table (two digits)
+
+* Total duration: divided by age?
+
+* Analyse mean improvement duration in analysis 2
+
+* Check DF for each model (what to do if too small?)
+
+* Olgmx for remission model

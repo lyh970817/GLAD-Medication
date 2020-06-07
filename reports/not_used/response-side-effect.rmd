@@ -1,0 +1,503 @@
+---
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    pandoc_args: ['-F', 'zotref', '-F', 'pandoc-citeproc']
+title: Investigating the Relationship Between Self-report Side Effect and Antidepressant Effectiveness
+subtitle: Preliminary Analyses
+author: Yuhao Lin
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+---
+
+```{r clear global environment variables, include = FALSE}
+rm(list = setdiff(ls(), lsf.str()))
+```
+
+```{r import datasets, include = FALSE}
+source("../../cleaning_scripts/med/MED.r")
+```
+
+```{r rsetup, include=FALSE}
+library(knitr)
+opts_chunk$set(
+  results = "asis",
+  comment = NA,
+  prompt = FALSE,
+  cache = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  echo = FALSE
+)
+
+library(summarytools)
+st_options(
+  plain.ascii = FALSE,
+  style = "rmarkdown",
+  footnote = NA,
+  subtitle.emphasis = FALSE
+)
+
+st_css()
+
+library(tidyverse)
+library(forcats)
+library(ggplot2)
+library(GGally)
+library(lindia)
+library(sjPlot)
+library(sjmisc)
+library(sjPlot)
+library(car)
+library(broom)
+library(kableExtra)
+options(knitr.kable.NA = "")
+library(vcd)
+```
+
+```{r extract the required columns, include = F}
+add_names <- med.names[grep("MED.ADD", colnames(dat_med[items][posi.med]))] %>%
+  .[-length(.)] # Last item is "I have never..."
+
+add_eff <- dat_med[items][posi.eff][eff.names %in% add_names] %>%
+  map_df(function(x) {
+    x[x == -88] <- NA
+    return(as.numeric(x) - 1)
+  })
+
+mean_eff <- rowSums(add_eff, na.rm = T) / dat_med$MED.ADD.N %>%
+  as.numeric() %>%
+  enframe(name = NULL)
+names(mean_eff) <- "mean_eff"
+
+add_sef <- dat_med[items][posi.sef][sef.names %in% add_names] %>%
+  map_df(as.numeric)
+mean_sef <- rowSums(add_sef, na.rm = T) / dat_med$MED.ADD.N %>%
+  as.numeric() %>%
+  enframe(name = NULL)
+names(mean_sef) <- "mean_sef"
+
+benefit <- dat_med[items][posi.ben][1]
+names(benefit) <- "benefit"
+
+dat <- bind_cols(
+  dat_med[1:3],
+  mean_eff, mean_sef,
+  benefit
+) %>%
+  rename(sex = MED.SEX.1.0) %>%
+  mutate(sex = as.numeric(sex)) %>%
+  mutate(sex = haven::labelled(sex, c(Female = 1, Male = 0))) %>%
+  mutate(sex = haven::as_factor(sex, levels = "labels"))
+
+label_names <- c(
+  "Sex", "Age",
+  "Effectiveness", "Side Effects", "Benefit"
+) %>%
+  setNames(colnames(dat)[-1])
+```
+
+## Descriptive Statistics
+
+* The "Benefit" variable refers to the answer to
+  "Overall, how would you rate the benefits of taking antidepressants?".
+  The answers range from 1 to 5.
+
+* The "Side Effect" variable is the total number of side effects
+  experienced divided by the number of medications (i.e. average number of
+  side effects across different medications). This is preliminary since
+  Gerome suggests we should discuss with the clinician to work out
+  a better measure.
+
+* The "Effectiveness" variable is the sum of the responses on
+  "How well does/did each antidepressant work for you?" (ranging
+  from 0 to 2) divided by the number of medications (i.e. average
+  rating of effectiveness across different medications).
+
+### All
+
+```{r descriptives all}
+summarytools::descr(dat %>%
+  plyr::rename(label_names),
+transpose = T,
+stats = c(
+  "mean", "med", "sd", "max",
+  "min", "skewness"
+), headings = FALSE
+)
+```
+
+### Female
+
+```{r descriptives female}
+summarytools::descr(dat %>%
+  filter(sex == "Female") %>%
+  plyr::rename(label_names),
+transpose = T,
+stats = c(
+  "mean", "med", "sd", "max",
+  "min", "skewness"
+), headings = FALSE
+)
+```
+
+### Male
+
+```{r descriptives male}
+summarytools::descr(dat %>%
+  filter(sex == "Male") %>%
+  plyr::rename(label_names),
+transpose = T,
+stats = c(
+  "mean", "med", "sd", "max",
+  "min", "skewness"
+), headings = FALSE
+)
+```
+
+```{r check outliers, include = F}
+# Checking outliers
+freq(dat$mean_eff)
+freq(dat$mean_sef)
+freq(dat$benefit)
+freq(dat$age)
+freq(dat$sex)
+# Seems fine.
+```
+
+## Checking distributions {.tabset .tabset-fade}
+
+### Age
+```{r age distribution, echo = F}
+qplot(dat$age,
+  geom = "histogram", binwidth = 1,
+  xlab = "Age"
+)
+```
+
+### Side Effects
+```{r mean_sef distribution, echo = F}
+qplot(dat$mean_sef,
+  geom = "histogram", binwidth = 1,
+  xlab = "Mean Number of Side Effects"
+)
+```
+
+### Benefit
+```{r benefit distribution, echo = F}
+qplot(dat$benefit,
+  geom = "histogram", binwidth = 1,
+  xlab = "Benefit Rating"
+)
+```
+
+### Effectiveness
+```{r effectiveness distribution, echo = F}
+qplot(dat$mean_eff,
+  geom = "histogram", binwidth = 1,
+  xlab = "Mean Effectiveness"
+)
+```
+
+## Examining correlations
+```{r correlations, fig.width = 45, fig.height = 45}
+ggpairs(
+  data = dat[c("sex", "age", "mean_sef", "benefit", "mean_eff")],
+  lower = list(continuous = "smooth", combo = "box"),
+  diag = list(continuous = "bar"),
+  upper = list(combo = "blank", continuous = wrap("cor", size = 15)),
+  columnLabels = c(
+    "Sex", "Age",
+    "Side Effects",
+    "Benefit", "Effectiveness"
+  ),
+  axisLabel = "show"
+) + theme_grey(base_size = 50)
+```
+
+## Gender Comparison
+t-tests to compare variables across genders.
+```{r gender comparison, echo = F}
+
+test <- bind_rows(
+  tidy(t.test(mean_eff ~ sex, data = dat, var.equal = F)),
+  tidy(t.test(mean_sef ~ sex, data = dat, var.equal = F)),
+  tidy(t.test(benefit ~ sex, data = dat, var.equal = F))
+) %>%
+  mutate(Variable = c("Side Effect", "Effectiveness", "Benefit")) %>%
+  select(
+    Variable, parameter, estimate, estimate1, estimate2, p.value,
+    conf.low, conf.high
+  )
+
+kable(test,
+  digits = 2,
+  col.names = c(
+    "", "df", "Difference", "Male", "Female",
+    "p value", "CI low", "CI high"
+  )
+) %>%
+  column_spec(1, bold = T)
+```
+
+## OLS Models
+
+### Fitting OLS1
+
+```{r ols1, echo = F}
+sef_ben_1 <- lm(data = dat, mean_sef ~ benefit + sex + age)
+tab_model(sef_ben_1,
+  pred.labels = c(
+    "Intercept", "Benefit",
+    "Sex", "Age"
+  ),
+  dv.labels = "Side Effects"
+)
+```
+Not much variance explained here. Is this what Gerome expects?
+If I did not misunderstand he seemed to think side effects can
+be a proxy for effectiveness, but here it seems not.
+
+### Diagnostics OLS1
+
+```{r ols1 assumptions}
+diag_ols_1 <- plot_model(sef_ben_1, type = "diag")
+print(diag_ols_1[[1]])
+print(diag_ols_1[[2]])
+print(diag_ols_1[[3]])
+print(diag_ols_1[[4]])
+gg_cooksd(sef_ben_1)
+
+cook_dist <- cooks.distance(sef_ben_1)
+n_influ <- sum(cook_dist > (4 / (nrow(dat) - 4 - 1)))
+```
+
+* Positively skewed residuals overall, also conditionally
+at each level of `benefit`. I presume it's due to
+the outcome variable `mean_sef` being also
+positively skewed?
+
+* Seems to be many influential points.
+Discard and refit? Rule of thumb
+with regard to Cook's distance is
+points with distance larger than
+$\frac{4}{n-p-1}$, where $p$ is the
+number of parameters.
+
+### Examining Influential Points
+Let's look at the first 20 out of `r n_influ`.
+
+```{r examining influential points}
+influ_dat <- dat[complete.cases(dat[-4]), ][order(cook_dist, decreasing = T), ] %>%
+  plyr::rename(label_names)
+kable(influ_dat %>% select(-ID) %>% head(20), digits = 2)
+```
+
+Nothing too special, it seems? So we will keep them.
+
+For issues with non-normal residuals,
+perhaps do a transformation (let the response
+variable be $log(Side Effects + 1)$) ?
+Not so sure since Gerome wants it to be simple and descriptive,
+and the untransformed model is certainly easier to interpret.
+
+### Fitting OLS2
+
+```{r ols2}
+dat2 <- dat
+dat2$log_mean_sef <- log(dat2$mean_sef + 1)
+sef_ben_2 <- lm(data = dat2, log_mean_sef ~ benefit + sex + age)
+tab_model(sef_ben_2,
+  pred.labels = c(
+    "Intercept", "Benefit",
+    "Sex", "Age"
+  ),
+  dv.labels = "log(Side Effects + 1)"
+)
+```
+
+### Diagnostics OLS2
+
+```{r ols2 diagnostics}
+diag_ols_2 <- plot_model(sef_ben_2, type = "diag")
+print(diag_ols_2[[1]])
+print(diag_ols_2[[2]])
+print(diag_ols_2[[3]])
+print(diag_ols_2[[4]])
+gg_cooksd(sef_ben_2)
+```
+
+A bit better.
+
+### A quick look at effectiveness and side effects
+```{r effectiveness and side effects}
+sef_eff_1 <- lm(data = dat, mean_sef ~ mean_eff + sex + age)
+tab_model(sef_eff_1,
+  pred.labels = c(
+    "Intercept", "Effectiveness",
+    "Sex", "Age"
+  ),
+  dv.labels = "Side Effects (Model 2)"
+)
+```
+
+The fit is worse.
+
+## Relationship of Effectiveness and Side Effect in Three Most Taken Medications
+
+```{r retrieve columns for the most taken meds}
+med_count <- dat_med[items][posi.med] %>%
+  select(contains("ADD")) %>%
+  colSums(na.rm = T)
+
+most_names <- med.names[order(med_count, decreasing = T)] %>% head(3)
+eff_most <- dat_med[items][posi.eff][eff.names %in% most_names] %>%
+  map_df(function(x) {
+    return(factor(x, levels = 0:2))
+  }) %>%
+  rename(
+    eff_1 = MED.EFF.1.0,
+    eff_2 = MED.EFF.2.0,
+    eff_3 = MED.EFF.3.0
+  )
+
+sef_most <- dat_med[items][posi.sef][sef.names %in% most_names]
+
+sef_1 <- rowSums(sef_most[grep("1.0", colnames(sef_most))],
+  na.rm = T
+) %>%
+  enframe(name = NULL) %>%
+  setNames("sef_1")
+
+sef_2 <- rowSums(sef_most[grep("2.0", colnames(sef_most))],
+  na.rm = T
+) %>%
+  enframe(name = NULL) %>%
+  setNames("sef_2")
+
+sef_3 <- rowSums(sef_most[grep("3.0", colnames(sef_most))],
+  na.rm = T
+) %>%
+  enframe(name = NULL) %>%
+  setNames("sef_3")
+
+dat_most <- bind_cols(
+  dat_med[1:3],
+  eff_most, sef_1,
+  sef_2, sef_3
+) %>%
+  rename(sex = MED.SEX.1.0) %>%
+  mutate(sex = as.numeric(sex)) %>%
+  mutate(sex = haven::labelled(sex, c(Female = 1, Male = 0))) %>%
+  mutate(sex = haven::as_factor(sex, levels = "labels"))
+```
+
+### Anova Models
+
+We include the interaction terms of the continuous variable and
+the categorical variables to test the assumption of homogeneity of
+regression slopes.
+
+#### **Citalopram**
+
+```{r anova1}
+anova1 <- aov(sef_1 ~ eff_1 + sex + age + age:sex + age:eff_1, data = dat_most)
+
+anova1_tab <- Anova(anova1, type = 3)
+anova1_tab$pes <- c(anova1_tab$"Sum Sq"[-nrow(anova1_tab)], NA) / (anova1_tab$"Sum Sq" + anova1_tab$"Sum Sq"[nrow(anova1_tab)])
+
+colnames(anova1_tab) <- c("SS", "df", "$F$", "$p$", "partial $\\eta^2$")
+rownames(anova1_tab) <- c(
+  "(Intercept)",
+  "Effectiveness",
+  "Sex",
+  "Age",
+  "Sex x Age",
+  "Effectiveness x Age",
+  "Residuals"
+)
+
+levene_test1 <- leveneTest(sef_1 ~ sex * eff_1, data = dat_most)
+colnames(levene_test1) <- c("df", "$F$", "$p$")
+rownames(levene_test1) <- c("Group", "Observations")
+
+kable(anova1_tab,
+  digits = 2,
+) %>% column_spec(1, bold = T)
+
+kable(levene_test1,
+  digits = 2,
+  caption = "Levene's Test"
+)
+```
+
+#### **Sertraline**
+
+```{r anova2}
+anova2 <- aov(sef_2 ~ eff_2 + sex + age + age:sex + age:eff_2, data = dat_most)
+
+anova2_tab <- Anova(anova2, type = 3)
+anova2_tab$pes <- c(anova2_tab$"Sum Sq"[-nrow(anova2_tab)], NA) / (anova2_tab$"Sum Sq" + anova2_tab$"Sum Sq"[nrow(anova2_tab)])
+
+colnames(anova2_tab) <- c("SS", "df", "$F$", "$p$", "partial $\\eta^2$")
+rownames(anova2_tab) <- c(
+  "(Intercept)",
+  "Effectiveness",
+  "Sex",
+  "Age",
+  "Sex x Age",
+  "Effectiveness x Age",
+  "Residuals"
+)
+
+
+levene_test2 <- leveneTest(sef_2 ~ sex * eff_2, data = dat_most)
+colnames(levene_test2) <- c("df", "$F$", "$p$")
+rownames(levene_test2) <- c("Group", "Observations")
+
+kable(anova2_tab,
+  digits = 2,
+) %>% column_spec(1, bold = T)
+
+kable(levene_test2,
+  digits = 2,
+  caption = "Levene's Test"
+)
+```
+
+#### **Fluoxetine**
+
+```{r anova3}
+anova3 <- aov(sef_3 ~ eff_3 + sex + age + age:sex + age:eff_3, data = dat_most)
+
+anova3_tab <- Anova(anova3, type = 3)
+anova3_tab$pes <- c(anova3_tab$"Sum Sq"[-nrow(anova3_tab)], NA) / (anova3_tab$"Sum Sq" + anova3_tab$"Sum Sq"[nrow(anova3_tab)])
+
+colnames(anova3_tab) <- c("SS", "df", "$F$", "$p$", "partial $\\eta^2$")
+rownames(anova3_tab) <- c(
+  "(Intercept)",
+  "Effectiveness",
+  "Sex",
+  "Age",
+  "Sex x Age",
+  "Effectiveness x Age",
+  "Residuals"
+)
+
+levene_test3 <- leveneTest(sef_3 ~ sex * eff_3, data = dat_most)
+colnames(levene_test3) <- c("df", "$F$", "$p$")
+rownames(levene_test3) <- c("Group", "Observations")
+
+kable(anova3_tab,
+  digits = 2,
+) %>% column_spec(1, bold = T)
+
+kable(levene_test3,
+  digits = 2,
+  caption = "Levene's Test"
+)
+```
+
+None of these are significant. Also Levene's tests indicate
+inhomogeneity of variances for all variables
+(higher probability of false positives).

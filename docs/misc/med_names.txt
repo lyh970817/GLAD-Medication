@@ -1,0 +1,79 @@
+Citalopram
+Sertraline
+Fluoxetine
+Paroxetine
+Mirtazapine
+Amitriptyline
+Dosulepin
+Duloxetine
+Venlafaxine
+Trazodone
+Escitalopram
+Nortriptyline
+Clomipramine
+Lofepramine
+Imipramine
+Trimipramine
+Doxepin
+Reboxetine
+Fluvoxamine
+Moclobemide
+Phenelzine
+Tranylcypromine
+Mianserin
+Dapoxetine
+Tryptophan
+Isocarboxazid
+Hypericum perforatum
+Vortioxetine
+A different antidepressant that isn't listed above
+Chlorpromazine
+Quetiapine
+Olanzapine
+Prochlorperazine
+Risperidone
+Aripiprazole
+Amisulpride
+Haloperidol
+Fluanxol Depot or Clopixol Depot
+Paliperidone
+Asenapine
+Valproate/valproic acid
+Lithium carbonate/citrate
+Another mood stabiliser
+Atomexatine
+Guanfacine
+Lisdexamfetamine
+Methylphenidate
+Dexamfetomine
+Topiramate
+Zonisamide
+Orlistat
+Metformin
+Sibutramine
+Diazepam
+Temazepam
+Lorazepam
+Clonazepam
+Nitrazepam
+Would you be willing to answer additional questions about your experiences with medication?
+When you were taking antidepressants, were you also taking any other prescribed medication?
+Chlorpromazine
+Quetiapine
+Olanzapine
+Prochlorperazine
+Risperidone
+Aripiprazole
+Amisulpride
+Haloperidol
+Fluanxol Depot or Clopixol Depot
+Paliperidone
+Asenapine
+Valproate/valproic acid
+Lithium carbonate/citrate
+Diazepam
+Temazepam
+Lorazepam
+Clonazepam
+Nitrazepam
+None

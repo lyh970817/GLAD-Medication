@@ -1,0 +1,355 @@
+---
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    pandoc_args: ['-F', 'zotref', '-F', 'pandoc-citeproc']
+title: Antidepressant Response and Side Effects in the GLAD Data
+author: Yuhao Lin
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  comment = NA,
+  prompt = FALSE,
+  cache = FALSE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+```{r clear global environment, include = FALSE}
+remove(list = ls())
+source("./analysis.r")
+```
+
+```{r rsetup, include=FALSE}
+library(knitr)
+opts_chunk$set(
+  results = "asis",
+  comment = NA,
+  prompt = FALSE,
+  cache = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  echo = FALSE
+)
+
+library(summarytools)
+st_options(
+  plain.ascii = FALSE,
+  style = "rmarkdown",
+  footnote = NA,
+  subtitle.emphasis = FALSE
+)
+st_css()
+```
+
+## **Overview of the Measures Used in the Current Analyses**
+
+# Medication Questionnaire
+
+Measures specific to a medication:
+
+**Medication History**: "Have you ever taken..."
+
+  - With focuses on antidepressants and mood stablizers
+
+**Effectiveness**: "How well does/did each antidepressant work for you?"
+
+  - One three-point Likert scale item from 0 to 2
+
+**Side Effects**
+
+
+# Medication Questionnaire
+
+Measures not specific to a medication:
+
+**Best Aspects**: "What were the best aspects of taking the antidepressant(s)?"
+
+  - Allows for multiple options, including items such as "Improved relationships", "Relief of depressive symptoms"
+
+**Benefit**: "Overall, how would you rate the benefits of taking antidepressants?"
+
+  - One five-point Likert scale item from 1 to 5
+
+# Other Questionanires
+
+**Patient Health Questionnaire (PHQ)-9**
+
+**General Anxiety Disorder (GAD)-7**
+
+**Standardized Assessment of Severity of Personality Disorder (SASPD)**
+
+All measure current symptoms
+
+**BMI**
+
+# To be included
+
+**Adapted CIDI Psychosis Module**
+
+  - Having issues computing scores for this one
+
+**Family History**
+
+**Smoking status and physical conditions?**
+
+# Computed variables used in the analyses
+
+**Mean side effects**
+
+  - Average number of side effects experienced across different
+    medications
+
+  - Discard some of the most common ones and rerun analyses?
+
+**Mean effectiveness**
+
+  - Average rating of effectiveness across different medications.
+
+**Number of antidepressants taken in each class**
+
+  - The classification is based on binding profile to receptors.
+
+**Number of best aspects**
+
+  - The number of items participant selected in the best aspect question.
+
+# Descriptives
+
+### All
+```{r all, results = "asis"}
+all
+```
+
+### Female
+```{r female, results = "asis"}
+female
+```
+
+### Male
+```{r male, results = "asis"}
+male
+```
+
+```{r cor, fig.width = 10, fig.height = 10, fig.align = "center"}
+ggcorrplot(cor_mat,
+  hc.order = TRUE, type = "lower",
+  lab = TRUE,
+  title = "Raw Correlations Between Items"
+)
+```
+
+# OLS1
+
+Mean side effects as response, benefits explanatory.
+```{r}
+tab_model(sef_ben_1,
+  pred.labels = c(
+    "Intercept", labels[
+      !labels %in% c(
+        "Mean Side Effects",
+        "Mean Effectiveness",
+        "Number of Best Aspects"
+      )
+    ]
+  ),
+  dv.labels = "Side Effects"
+)
+```
+
+The residuals don't look right, which is related to the distribution of the
+response.
+```{r}
+diag_ols_1[[1]]
+diag_ols_1[[2]]
+diag_ols_1[[3]]
+diag_ols_1[[4]]
+qplot(dat$mean_sef,
+  geom = "histogram", binwidth = 1,
+  xlab = "Mean Side Effects"
+)
+```
+
+Try a simple transformation.
+```{r}
+tab_model(sef_ben_2,
+  pred.labels = c(
+    "Intercept", labels[
+      !labels %in% c(
+        "Mean Side Effects",
+        "Mean Effectiveness",
+        "Number of Best Aspects"
+      )
+    ]
+  ),
+  dv.labels = "log(Side Effects + 1)"
+)
+```
+
+Unsatisfactory.
+```{r}
+diag_ols_2[[2]]
+diag_ols_2[[3]]
+diag_ols_2[[4]]
+```
+
+We then try to look for a GLM as simple as possible to model the data.
+Proportional odds model seems to be a good choice if we treat "Benefit" as
+response and model it as an ordinal variable. Since "Benefit" only takes five levels.
+
+**Benefit**: "Overall, how would you rate the benefits of taking antidepressants?"
+
+  - One five-point Likert scale item from 1 to 5
+
+The idea of a proportional odds model is to use a cummulative link function
+
+Suppose that the reponse has $J$ levels, we have for the response of each
+participant $Y_{i}$ and level $j = 2, 3, ..., J$ (The first level is used
+as reference)
+
+$P(Y_{i} \le j) = G(\theta_{j} + \sum \beta x)$
+
+So we are to fit a different intercept \theta_{j} but the same \betas to each level.
+To express the right hand side as a linear combination of $x$s, we can use
+
+$logit(P(Y_{i} \le j)) = log(\frac{P(Y_{i} \le j)}{P(Y_{i} > j)}$
+
+So we can write
+
+$log(\frac{P(Y_{i} \le j)}{P(Y_{i} > j)}) = \theta_{j} + \sum \beta x$
+
+So fitting this model amounts to fitting $J-1$ logistic regression models with different intercepts.
+
+```{r}
+
+attributes <- attributes(plor_fit$model)
+tab_model(plor_fit,
+  pred.labels = c(
+    "Intercept (<= 2)",
+    "Intercept (<= 3)",
+    "Intercept (<= 4)",
+    "Intercept (<= 5)",
+    labels[attributes$names]
+  ),
+  dv.labels = "Benefit"
+)
+```
+
+Discard the unsignificant predictors and refit.
+```{r}
+attributes <- attributes(plor_fit2$model)
+tab_model(plor_fit2,
+  pred.labels = c(
+    "Intercept (<= 2)",
+    "Intercept (<= 3)",
+    "Intercept (<= 4)",
+    "Intercept (<= 5)",
+    labels[attributes$names]
+  ),
+  dv.labels = "Benefit"
+)
+```
+
+Also need to test the proportional odds assumption that all \betas are equal.
+
+```{r}
+bant_names <- c(
+  "Omnibus",
+  labels[
+    !labels %in% c(
+      "Benefit",
+      "Age",
+      "Mean Effectiveness",
+      "Benefits",
+      "Number of Best Aspects",
+      "Current Anxiety",
+      "NASSA",
+      "SNRI",
+      "SERO",
+      "IRR",
+      "NORA",
+      "ALPHA1",
+      "NRI"
+    )
+  ]
+)
+dimnames(bplor2)[[1]] <- bant_names
+dimnames(bplor2)[[2]][3] <- "P value"
+kable(bplor2, digits = 2)
+```
+
+The test is significant for MAO. Need to look in to detail by plotting the
+model.  Potentially refit with a partial proportional odds model where some
+\betas are free to varied between levels.
+
+Now we turn to the mean effectiveness variable.
+
+**Effectiveness**: "How well does/did each antidepressant work for you?"
+
+  - One three-point Likert scale item from 0 to 2
+
+**Mean effectiveness**
+
+  - Average rating of effectiveness across different medications.
+
+```{r}
+qplot(dat$mean_eff,
+  geom = "histogram", binwidth = 0.1,
+  xlab = "Mean Effectiveness"
+)
+```
+
+The distribution has "jumps" persumably because the variable is computed
+from an ordinal item. We grouped the values by dividing into four
+intervals, breaks of which are at each 0.5 increase, then fit with a
+proportional odds model.
+
+```{r}
+attributes <- attributes(plor_fit_eff1$model)
+tab_model(plor_fit_eff1,
+  pred.labels = c(
+    "Intercept (<= 1)",
+    "Intercept (<= 1.5)",
+    "Intercept (<= 2)",
+    labels[attributes$names]
+  ),
+  dv.labels = "Grouped Mean Effectiveness"
+)
+```
+
+Now turn to the "number of benefits" variable.
+
+**Best Aspects**: "What were the best aspects of taking the antidepressant(s)?"
+
+  - Allows for multiple options, including items such as "Improved relationships", "Relief of depressive symptoms"
+
+**Number of best aspects**
+
+  - The number of items participant selected in the best aspect question.
+
+```{r}
+attributes <- attributes(sef_n_best$model)
+tab_model(sef_n_best,
+  pred.labels = c(
+    "Intercept",
+    labels[attributes$names]
+  ),
+  dv.labels = "Number of Best Aspects"
+)
+```
+
+# To be completed
+
+* Association to each of the best aspect question
+
+* Association to having to stop because of side effects
+
+* Association to each of the worst aspect question
+
+* Association between two further symptom questions - expect negative
+  association

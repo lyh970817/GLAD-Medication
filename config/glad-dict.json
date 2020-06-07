@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "glad-dictionary",
+  "private_key_id": "9ca37805be889ca2f65f52a600f3f16f0a1fb1f3",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDF5gGiMaXa2N15\n7gPW4AfgHe6wbbwk2HW6KdJaZBaxtULMRpS3TXe53kHBMyezopmM8F08qgTU+ezC\nms7TW3rM2xbhhntRb3+IrtnitkO7BayNJU/LCnXf4VeMTkXD5AUa4hlsll2ozVGt\nVa+bUCKdVKshXAjpvlz70ExAyK0MOpvfvuXsn3GtjPW1LyIOD1Vig7WDrli5ac7B\nLH/Bhb0k32q1CWPCe5NvoRNYqAtQ6XBwC70TQFjD+d2hgPSnrUH/SZBo0sNZlmaA\noRg4e8hzeyX1GJlWo0QdqlM0WxTwb4ZhjLvqZZ9bReiLIlFYkrHCQoDrBPr02JwY\nyOwyiecZAgMBAAECggEAB8cbsIzSbBRSqycsOco41QQoJVakhy9NJvqGlaVunAO3\n5MChnRtWKTiof0Kk7qTznhhfMpzkPWQoiiaR/dUeMZe5M2+RzqEpJPSUhDZ4oHA/\nX1z5xHecZApT8OsfR9B9jjTfOmAl2d1emiPHe3YhiM6oWu7mWFVyRG8cueEXbVjS\nX7B58xbksojlRthyRTBNudThBXzDyX54MdS/49qiRfG36EbfHzZeq5QQbIc8XvPk\nZaChlCnsqJU5WPc6n9y7wO0qytNid3mIlp2uCkUbD7JrMTr8PiXVrhMheLMgCYbr\nXDTqtwgGDKN5fPWllUWeM0TgDrOJBBFGSn6XRNUDzwKBgQDzJtu216zf3eSORmEo\nWtINwrPRwWP7uLUaQKuORSFVxhwxG07bWcfdyUMDFwTHaFFvfluXoAxMkmt0u9n2\nQhhe0kdtLYS6TifsgF25XCI9LZDh2Gffp1L5VQEj0qdKEbB63tyw4YEPTkheSVv+\nuOqtk3k4TzxH08+cESGuy9g8nwKBgQDQWwBRoTaByfpUsi360ZQ4liCybknzEmek\nkHHXes4byaPwA5bpZ6dY5DKV+dXBEMVNN9fhsp574+O0OJdCVkuU4pWfAAHCBGQ0\nn47bpj1fcJgIPLK+T00VqHX9RHpJ4WJok4owYJMtOvYSwMUoseE9ai+ma0+xgasO\n0VZqWuCJRwKBgQDQHexlPYjsPCJKXJcAUWwE9yeuW1bWt6vbAotURHtZzS2IIpWG\nTfwyKve+h09B1loNkhuXVhfw2ko7KiZPDxeI4XbdTd6TEB4/4UdXRjLQJlYh2HZg\nCfmNC2LkZINndGiXYnWGuB0dGqX6fdPN3DyRwO46cidoWzURoeAwmq1EhQKBgQC3\nuecYFC56WF6T3OLKr5AiLc/7R2GSJAKcjHq2ZiXlPvN+q8uhWbOpoOAye7HPozg4\nFSwaa2VxHc0mmFhZOLtBOGRzZpAmQ7UQ6joQ2hB4XlLRwKRlSIxSstAIWx/ykfoy\n+Rb7/c0KL1nZw36XmfNiMoZ+G1aU0iDC2jl3Y1dn9QKBgEh3pfpVGUH5MgADxnCX\ngNHJFiRGvhoFf965Jq9DPyr48X4goYtIxwTQLh2x+6KJUhkbtPfZ+Nlce6NwtmwU\nQ9TM8HhY8Pm5yWoBzQXApVmtH6KjF/r5GctSG7TxhtmSwWfwCfDMNKlMA0I/g3KD\nTynXzm1Cmwz54OOEn1VaTrhn\n-----END PRIVATE KEY-----\n",
+  "client_email": "glad-dictionary@glad-dictionary.iam.gserviceaccount.com",
+  "client_id": "113246294439597031908",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/glad-dictionary%40glad-dictionary.iam.gserviceaccount.com"
+}

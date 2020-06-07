@@ -1,0 +1,4 @@
+*.RData
+*.feather
+*.rds
+*.hash
