@@ -4,6 +4,8 @@
   <img src="./glad_logo.jpg" width="350" class="center">
 </p>
 
+<br/>
+
 Analysis scripts, OSF registration form and manuscript for the medication
 questionnaire in the **Genetic Links to Depression and Anxiety (GLAD)** study.
 
