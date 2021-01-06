@@ -80,23 +80,36 @@ effects represent a serious burden for individuals taking antidepressants and
 are associated with lower adherence to treatment complicating successful
 treatment of depressive episodes.
 
-Little phenotypic epidemiological research has investigated the relationship
-between antidepressant effectiveness and side effects, motivating our in-depth
-investigation of side effects in antidepressants. In the current study, we
-collect self-report data through a large online questionnaire survey from a
-total of more than 6,000 patients treated with antidepressants. Participants
-report a comprehensive set of side effects and effectiveness measures for a wide
-range of antidepressants that they took during their lifetime. Given the body of
-research indicating an association between psychiatric diagnoses and treatment
-experience including side effect severity, we measure a range of psychiatric
-diagnoses and individual medication history. In addition, we measure family
-psychiatric diagnostic history as a proxy for genetic/familial load. We
-investigate associations of side effect severity and treatment intolerance with
-the length of medication history, lifetime psychiatric diagnoses,  family
-psychiatric diagnostic history and the type of antidepressant, and examine
-if side effect severity and treatment intolerance are associated with
-antidepressant effectiveness. We also explore whether specific side effects are
-particularly associated with effectiveness.
+There has been ongoing research to find correlates of response to
+antidepressants. Most research centers around using biomarkers from
+physiological data from, for example, neuroimaging and pharmacogenetics
+[@MV4QIJXN#Labermaier_Masana_Müller_2013_Biomarkers;
+@URTAGHPA#Sambataro_Wolf_2019_Embarking]. There are several investigations into
+non-physiological correlates of antidepressant treatment response based on
+clinical trial data [@MP64S4G2#Chekroud_Etal_2016_Crosstrial;
+@KTZ8XBKT#Rajpurkar_Etal_2020_Evaluation; @7CPUQUSP#Kautzky_Etal_2019_Clinical;
+@WCAUCZJ2#Howland_Etal_2008_Factors]. A similar set of variables that are also
+assocaited with side effect severity were identified to be assocaited with
+poorer treatment outcome such as inital depression severity, duration of
+depressive symptoms, and comorbid symptoms of other psychiatric disorders,
+especially those concerning anxiety. However, the conclusion of these studies
+are also limited by the lack of generalizability and the short time frame
+inherent in trial data, as well as small sample sizes (N < 600).
+
+In the current study, we collect self-report data through a large online
+questionnaire survey from a total of more than 6,000 patients treated with
+antidepressants. Participants report a comprehensive set of side effects and
+effectiveness measures for a wide range of antidepressants that they took during
+their lifetime. Given the body of research indicating an association between
+psychiatric diagnoses and treatment experience including side effect severity,
+we measure a range of psychiatric diagnoses and individual medication history.
+In addition, we measure family psychiatric diagnostic history as a proxy for
+genetic/familial load. We investigate associations of side effect severity and
+treatment intolerance with the length of medication history, lifetime
+psychiatric diagnoses,  family psychiatric diagnostic history and the type of
+antidepressant, and examine if side effect severity and treatment intolerance
+are associated with antidepressant effectiveness. We also explore whether
+specific side effects are particularly associated with effectiveness.
 
 ### Hypotheses (required)
 
@@ -110,7 +123,7 @@ We hypothesize that 1) the length medication history and lifetime psychiatric
 diagnoses are positively associated with side effect severity ; 2) these factors
 are also positively associated with treatment intolerance; 3) side effect
 severity and treatment intolerance are negatively associated with antidepressant
-effectiveness. 4) We exploratory analyse if specific side effects are
+effectiveness. 4) We conduct exploratory analyses to see if specific side effects are
 associated with effectiveness.
 
 ## Design Plan

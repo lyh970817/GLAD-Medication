@@ -20,3 +20,9 @@
 * Check DF for each model (what to do if too small?)
 
 * Olgmx for remission model
+
+* mhd models - less than 20 drop the diagnosis
+
+* drop number of psychiatric diagnoses/bmi
+
+* current depression + current anxiety

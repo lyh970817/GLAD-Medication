@@ -17,12 +17,7 @@ receptor binding profile `med_mat`.
   discarded from **MED**. Because this means they did not complete the whole
   questionnaire.
 
-* All data files were left joined with the ID column in **MED**.
-
-* Ethnicities in **DEM** were examined for the resulting participants and most
-  participants are white, so we will not include ethnicity as a variable for
-  analyses.
-
+* All data files were left joined with the ID column in **MED**.  Ethnicities in **DEM** were examined for the resulting participants and most participants are white, so we will not include ethnicity as a variable for analyses.
 * `bmi`: derived (with the `GLAD_derive` function) metric BMI extracted from
   **DEM**. All values were recoded to absolute values in which those higher than
   60 or lower than 13 were set to NA._

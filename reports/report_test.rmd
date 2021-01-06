@@ -1,0 +1,51 @@
+---
+output:
+  pdf_document
+title: Predictors of Antidepressant Response and Side Effects in the Genetic Links to Anxiety and Depression (GLAD) Study
+subtitle: Analysis Report
+author: Yuhao Lin
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  comment = NA,
+  prompt = FALSE,
+  cache = FALSE,
+  asis = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 7,
+  fig.fullwidth = TRUE,
+  out.width = "180%"
+)
+options(knitr.kable.NA = "")
+options(width = 200)
+```
+
+```{r clear global environment, include = FALSE}
+remove(list = ls())
+```
+
+```{r loading packages, include = FALSE}
+setwd("../")
+library(ProjectTemplate)
+load.project()
+library(ggrepel)
+library(kableExtra)
+library(broom)
+```
+# Analyses
+
+
+```{r, results = "asis"}
+
+for (m in m1_1) {
+  if (attr(m, "dep") == "mean_sef") {
+    print(kable_hurd(m))
+  } else {
+    print(kable_prop(m))
+  }
+}
+```

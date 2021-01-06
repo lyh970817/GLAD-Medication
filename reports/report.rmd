@@ -38,8 +38,27 @@ load.project()
 library(ggrepel)
 library(kableExtra)
 library(broom)
+
+multi_adjust <- function(model) {
+  n_p <- sum(map_dbl(model, nrow))
+  modify(model, function(m) {
+    mutate_at(m, vars(contains("P")), ~ . * n_p)
+  })
+}
+
+only_sig <- function(model) {
+  modify(model, function(m) {
+    r_lgl <- apply(m, 1, function(row) {
+      lgl <- any(as.numeric(row) <= 0.05)
+      lgl[is.na(lgl)] <- FALSE
+      return(lgl)
+    })
+
+    m[r_lgl, ]
+  })
+}
 ```
-# Medication Clustering
+# Medication clustering
 
 **Create a matrix of receptor binding for antidepressants based on the
 binding constants from wikipedia and try to cluster them based on this;
@@ -143,7 +162,7 @@ There is also a relationship between cosine distance and correlation in
 that cosine between two standardized variables is equal to correlation. In
 this paper "How Does Gene Expression Clustering Work?", the authors
 actually refer to the measure of cosine as "uncentered correlation"
-[@9X58LN4K].
+[@9X58LN4K#D'Haeseleer_2005_How].
 
 ```{r}
 hc_cor_p
@@ -187,15 +206,20 @@ tidy(gad_t) %>%
 sum_tab %>%
   ungroup() %>%
   mutate(name = recode(name, !!!labels)) %>%
-  mutate(valid_pct = scales::percent(valid_pct)) %>%
+  mutate(
+    valid_pct = scales::percent(valid_pct),
+    pval = scales::pvalue(pval)
+  ) %>%
   setNames(c(
     " ",
-    rep(c("Mean", "Median", "SD", "Range", "N Valid"), 2),
+    "Mean", "Median", "SD", "Range", "N Valid",
+    "p value",
+    "Mean", "Median", "SD", "Range", "N Valid",
     "Percentage Valid"
   )) %>%
   kable(format = "html", digits = 2) %>%
   kable_styling(bootstrap_options = "striped", full_width = F, font_size = 14) %>%
-  add_header_above(c(" " = 1, "Male" = 5, "Female" = 5, " ")) %>%
+  add_header_above(c(" " = 1, "Male" = 5, " " = 1, "Female" = 5, " ")) %>%
   footnote(
     general = "(N) indicates that the variable is counts (e.g. number of diagnoses). ",
     footnote_as_chunk = T, title_format = c("italic", "underline")
@@ -338,71 +362,16 @@ underestimates.
 
 # Analyses
 
-## Confirmatory Analysis 1
+## Confirmatory analysis 1
 
 For confirmatory analysis 1 we seek to identify correlates of
 antidepressants side effect severity (See *manuscripts/OSF* for detail).
 
-### Model 1
+For the continuous dependent variable "mean side effects (MED)", 
+We fit a logistic regression model for $Y = 0$ and a gamma GLM with log
+link for $Y > 0$.  Inferential statistics are given by the Wald test.
 
-**Fit univariate regression models with covariates and independent variables.**
-
-The first dependent variables for analysis 1 are:
-
-*From manuscripts/OSF.md:*
-
-> * Side effect severity indices (*SE_20*, *SE_15* and *SE_10*)
->
->   - We compute three side effect indices, which are the average number of side
->     effects across medications discounting those side effects having higher than
->     respectively 20%, 15% and 10% (*SE_20*, *SE_15* and *SE_10*) prevalence and
->     can be considered as false positives, in that they could be thought of as
->     residual symptoms or discontinuation-related symptoms (descriptions of these
->     can be found in @9D3H65H5#Kelly_Posternak_Jonathan_2008_Toward), or could be
->     counfounded by co-morbid physical diseases [see
->     @TTV2957L#Uzun_Etal_2009_Depressive for descriptions of such side effects].
-
-Below are the coefficients from univariate models where we fit a logistic
-regression model for $Y = 0$ and a gamma GLM with log link for $Y > 0$.
-Inferential statistics are given by the Wald test.
-
-```{r}
-kable_hurd(hm_20_uni)
-```
-
-```{r}
-kable_hurd(hm_15_uni)
-```
-
-```{r}
-kable_hurd(hm_10_uni)
-```
-
-**Below are the multivariate models**. I looked at the diagnostics for
-these multivariate models and they all seem to fit quite well with regards
-to residual distributions. There seems to be, however, some
-multicollinearity going on with those anxiety and depression related
-variables.
-
-```{r}
-kable_hurd(hm_20)
-```
-
-```{r}
-kable_hurd(hm_15)
-```
-
-```{r}
-kable_hurd(hm_10)
-```
-
-It's interesting though this paper "Modelling Non-negative Data with
-Clumping at Zero: A Survey" [@62XAWTGG#Y_A_2002_Modeling] suggests that it
-is also plausible to apply binning to data whilst treating zeroes as an
-independent category and fit proportional odds models (which I'm using
-below not for continuous but for categorical data).
-
-The following two dependent variables in analysis 1 are ordinal variables
+The other two dependent variables in analysis 1 are ordinal variables
 for which I used a partial proportional odds model. The formulation the
 model is given by
 
@@ -424,60 +393,106 @@ ordinal, by comparing the models where the effect is specified to be ordinal or
 nominal. I first entered all variables as ordinal, ran the test and re-entered the
 significant variables as nominal effects.
 
-**Fit univariate regression models with covariates and independent variables.**
-
-I cannot run univariate regressions with the package I'm using for this
-model, because it does not allow specifying only nominal effects - perhaps
-the package author thinks that with only nominal effects the model isn't
-"ordinal" any more in a sense that the direction of the effect might not
-stay the same across levels? It's likely that there are other packages that
-can do this though. Would this be necessary to do?
-
-### Model 2
-
-The second dependent variable for analysis 1 is:
-
-*From manuscripts/OSF.md:*
-
-> - Self-report side effect severity rating (1-5 Likert scale)
->
->   Item in questionnaire: *"Overall, how would you rate the side-effects of
->   taking antidepressants?"*
-
-
-```{r}
-kable_prop(m_sef)
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m1_1))) {
+  if (attr(m, "dep") == "mean_sef") {
+    print(kable_hurd(m))
+  } else {
+    print(kable_prop(m))
+  }
+}
 ```
 
-### Model 3
+### BMI removed
 
-The third dependent variable for analysis 1 is:
-
-*From manuscripts/OSF.md:*
-
-> * Likelihood of intolerance
->
->   - Computed by averaging treatment intolerance (binary) across medications.
-
-The measure originally collected in the questionnaire is:
-
-> - Treatment intolerance for each antidepressant (binary)
->
->   Example item in questionnaire: *"Did you have to stop taking any of these
->   medication(s) because of side effects? - Citalopram (e.g. Cipramil)"*
-
-```{r}
-kable_prop(m_into)
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m1_w1))) {
+  if (attr(m, "dep") == "mean_sef") {
+    print(kable_hurd(m))
+  } else {
+    print(kable_prop(m))
+  }
+}
 ```
 
-## Confirmatory Analysis 2
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m1_2))) {
+  if (attr(m, "dep") == "mean_sef") {
+    print(kable_hurd(m))
+  } else {
+    print(kable_prop(m))
+  }
+}
+```
 
-For confirmatory analysi 2 we seek to determine if effectiveness is
-assocaited with side effect severities.
+### BMI removed
 
-### Model 1
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m1_w2))) {
+  if (attr(m, "dep") == "mean_sef") {
+    print(kable_hurd(m))
+  } else {
+    print(kable_prop(m))
+  }
+}
+```
 
-The first dependent variable for confirmatory analysis 2 is the average effectiveness index.
+### Subgroup analysis
+
+The following models including "current depression (PHQ)" are run on the
+subsample that are currently depressed and on medication.
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m1_3))) {
+  if (attr(m, "dep") == "mean_sef") {
+    print(kable_hurd(m))
+  } else {
+    print(kable_prop(m))
+  }
+}
+```
+
+### BMI removed
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m1_w3))) {
+  if (attr(m, "dep") == "mean_sef") {
+    print(kable_hurd(m))
+  } else {
+    print(kable_prop(m))
+  }
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m1_4))) {
+  if (attr(m, "dep") == "mean_sef") {
+    print(kable_hurd(m))
+  } else {
+    print(kable_prop(m))
+  }
+}
+```
+
+### BMI removed
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m1_w4))) {
+  if (attr(m, "dep") == "mean_sef") {
+    print(kable_hurd(m))
+  } else {
+    print(kable_prop(m))
+  }
+}
+```
+
+## Confirmatory analysis 2
+
+For confirmatory analysis 2 we seek to identify correlates of
+antidepressants effectiveness (See *manuscripts/OSF* for detail).
+
+
+The three dependent variables for confirmatory analysis 2 are
 
 *From manuscripts/OSF.md:*
 
@@ -495,26 +510,13 @@ The first dependent variable for confirmatory analysis 2 is the average effectiv
 > Therefore, it would be more reasonable to bin this variable at 0.5 cut-offs,
 > recoding it into an ordinal variable of six levels.
 
-```{r}
-kable_prop(m_eff)
-```
 
-### Model 2
-
-The second dependent variable for confirmatory analysis 2 is the average effectiveness index.
+*From manuscripts/OSF.md:*
 
 > - Self-report overall benefit of taking antidepressants (1-5 Likert scale)
 >
 >   Item in questionnaire: *"Overall, how would you rate the benefits of taking
 >   antidepressants?"*
-
-```{r}
-kable_prop(m_ben)
-```
-
-### Model 3
-
-The second dependent variable for confirmatory analysis 2 is the average effectiveness index.
 
 *From manuscripts/OSF.md:*
 
@@ -534,14 +536,166 @@ Original measure from questionnaire:
 
 > This variable was cut into three bins.
 
-```{r}
-kable_prop(m_remi)
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_1))) {
+  print(kable_prop(m))
+}
 ```
 
-I only included the models that you saw last time and those that I think we
-will most likely run in the end. There are more models I proposed in the
-OSF, but since we have not decided on a multiple testing procedure yet I'm
-not sure if I should run them now. The functions for them are written so
-once we have the right variables running them should be instantaneous.
+### BMI removed
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_w1))) {
+  print(kable_prop(m))
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_2))) {
+  print(kable_prop(m))
+}
+```
+
+### BMI removed
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_w2))) {
+  print(kable_prop(m))
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_3))) {
+  print(kable_prop(m))
+}
+```
+
+### BMI removed
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_w3))) {
+  print(kable_prop(m))
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_4))) {
+  print(kable_prop(m))
+}
+```
+
+### BMI removed
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_w4))) {
+  print(kable_prop(m))
+}
+```
+
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_5))) {
+  print(kable_prop(m))
+}
+```
+
+### BMI removed
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_w5))) {
+  print(kable_prop(m))
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_6))) {
+  print(kable_prop(m))
+}
+```
+
+### BMI removed
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_w6))) {
+  print(kable_prop(m))
+}
+```
+
+### Subgroup analysis
+
+The following models incluuding "current depression (PHQ)" are run on the
+subsample that are currently depressed and on medication.
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_7))) {
+  print(kable_prop(m))
+}
+```
+
+### BMI removed
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_w7))) {
+  print(kable_prop(m))
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_8))) {
+  print(kable_prop(m))
+}
+```
+
+### BMI removed
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_w8))) {
+  print(kable_prop(m))
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_9))) {
+  print(kable_prop(m))
+}
+```
+
+### BMI removed
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_w9))) {
+  print(kable_prop(m))
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_10))) {
+  print(kable_prop(m))
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_11))) {
+  print(kable_prop(m))
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_w11))) {
+  print(kable_prop(m))
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_12))) {
+  print(kable_prop(m))
+}
+```
+
+```{r, results = "asis"}
+for (m in only_sig(multi_adjust(m2_w12))) {
+  print(kable_prop(m))
+}
+```
 
 # References

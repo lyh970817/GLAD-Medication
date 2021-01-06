@@ -19,8 +19,10 @@
 # sheet_cidia <- GLAD_sheet("CIDIA")[[1]]
 # sheet_pad <- GLAD_sheet("PAD")[[1]]
 # sheet_mhd <- GLAD_sheet("MHD")[[1]]
+# sheet_wsas <- GLAD_sheet("WSAS")[[1]]
+# sheet_phy <- GLAD_sheet("PHY")[[1]]
 
-for (object in ls() %>% grep("sheet", ., v = T)) cache(object)
+# for (object in ls() %>% grep("sheet", ., v = T)) cache(object)
 
 ## Create derived variables
 
@@ -30,6 +32,11 @@ dat.phq <- GLAD_derive(dat.phq, sheet_phq)
 dat.saspd <- GLAD_derive(dat.saspd, sheet_saspd)
 dat.cidid <- GLAD_derive(dat.cidid, sheet_cidid)
 dat.cidia <- GLAD_derive(dat.cidia, sheet_cidia)
+dat.wsas <- GLAD_derive(dat.wsas, sheet_wsas)
+# dat.cidia[["cidia.felt_worried"]] > 1
+# sum(is.na(with(dat.cidia, eval(parse(text = sheet_cidia[["formula"]][164])))))
+
+# sum(is.na(dat.cidia["cidia.lifetime_anxiety"]))
 # dat.cidip <- GLAD_derive(dat.cidip, sheet_cidip)
 dat.pad <- GLAD_derive(dat.pad, sheet_pad)
 
@@ -46,7 +53,7 @@ dat.med["MED.ADD.1.0_0"] <- NULL
 dat_list <- list(
   dat.dem, dat.med, dat.gad, dat.phq, dat.cidip,
   dat.saspd, dat.cidid, dat.cidia, dat.pad, dat.mhd,
-  dat.fam
+  dat.fam, dat.wsas, dat.phy, cidid.diag, cidia.diag
 )
 
 ## Get medication ids
@@ -70,11 +77,12 @@ dat_list <- map(dat_list, function(dat) {
   setNames(c(
     "dem", "med", "gad", "phq", "cidip",
     "saspd", "cidid", "cidia", "pad", "mhd",
-    "fam"
+    "fam", "wsas", "phy", "cidid.diag", "cidia.diag"
   ))
 
 # Deriving variables
 
+browser()
 ## Demographics
 
 # Have a look at ethnicity
@@ -88,16 +96,24 @@ table(dat_all_eth[1])
 bmi <- dat_list[["dem"]][["dem.bmi_metric"]] %>%
   apply_lim(13, 60)
 
+employment <- dat_list[["dem"]][["dem.employment"]]
+levels(employment)[1] <- "Employed"
+employment[employment %in% levels(employment)[c(1, 2, 3, 4, 6, 7, 8)]] <- "Employed"
+employment <- factor(employment)
+
+martial <- dat_list[["dem"]][["dem.marital_status"]]
+levels(martial)[4] <- "Relationship"
+
+martial[martial %in% levels(martial)[c(2, 3, 4, 5)]] <- "Relationship"
+martial[martial %in% levels(martial)[c(5, 6, 7, 8)]] <- "Single"
+martial <- factor(martial)
+
 smoke_num <- dat_list[["dem"]][["dem.smoking_status_numeric"]]
 
-smoke_perday <- dat_list[["dem"]][["dem.smoking_perday"]] %>%
-  ifelse(is.na(.), 0, .)
+smoke <- dat_list[["dem"]][["dem.smoking_yearssmoked"]] %>%
+  ifelse(smoke_num == 0, 0, .)
 
-smoke_sec <- dat_list[["dem"]][["dem.smoking_secondhand"]]
-
-smoke_years <- dat_list[["dem"]][["dem.smoking_yearssmoked"]] %>%
-  ifelse(is.na(.), 0, .)
-
+score_wsas <- dat_list[["wsas"]][["wsas.total"]]
 ## GAD Score
 
 ### We will compare total sample GAD score with medicaion GAD score
@@ -116,7 +132,7 @@ score_phq <- dat_list[["phq"]][["phq.new.total"]]
 
 # CIDID Score
 
-score_cidid <- dat_list[["cidid"]][["cidid.depressed_symptoms"]]
+score_cidid <- dat_list[["cidid"]][["cidid.lifetime_depression"]]
 
 ## SASPD Score
 
@@ -129,7 +145,7 @@ score_cidip <- dat_list[["cidip"]][["cidip.total"]]
 ## CIDIA Score
 
 score_cidia <- dat_list[["cidia"]][["cidia.lifetime_anxiety"]] %>%
-  factor(levels = c(0, 1), labels = c("No", "Yes"))
+  factor(levels = c(0, 1), labels = c(0, 1))
 
 # PAD
 
@@ -138,6 +154,23 @@ score_pad <- dat_list[["pad"]][["pad.scr.total"]]
 # MHD
 
 score_mhd <- dat_list[["mhd"]][["mhd.total"]]
+mhd <- dat_list[["mhd"]][c(43:59, 60:73)] %>%
+  na_remove()
+
+
+no_ans <- (mhd[["mhd.none_of_the_above_numeric"]] == 1 | mhd[["mhd.dont_know_numeric"]] == 1 | mhd[["mhd.prefernot_numeric"]] == 1) &
+  (mhd[["mhd.none_of_the_above_2_numeric"]] == 1 | mhd[["mhd.dont_know_2_numeric"]] == 1 | mhd[["mhd.prefernot_2_numeric"]] == 1)
+
+mhd <- modify(mhd, function(col) {
+  col[is.na(col)] <- 0
+  col[no_ans] <- NA
+  return(col)
+})
+
+mhd <- mhd[-c(14:17, 28:31)]
+mhd <- mhd[!names(mhd) %in% c("mhd.perinatal_dep_numeric", "mhd.PMDD_numeric")]
+
+colnames(mhd) <- tolower(str_replace(colnames(mhd), "\\.", "_"))
 
 # FAM Number of relatives with psychiatric diagnoses
 
@@ -203,7 +236,6 @@ sef_labels <- GLAD_getdescr(colnames(items_sef), sheet_med) %>%
   unique()
 
 cache("sef_names")
-cache("sef_labels")
 
 # Total medication instances
 tot_ins <- sum(n_med)
@@ -215,8 +247,21 @@ sef_perct <- map_dbl(sef_names, function(name) {
 })
 
 
-
 cache("sef_perct")
+
+# If prefer not to say for side effect q then true NA?
+sef_index <- map(sef_names, function(name) {
+  items_name <- items_sef %>%
+    select(contains(name))
+  rowSums(items_name, na.rm = T) / n_med
+}) %>%
+  setNames(paste0("sef_", tolower(sef_names))) %>%
+  as_tibble()
+
+sef_labels <- setNames(sef_labels, colnames(sef_index))
+
+cache("sef_labels")
+cache("sef_index")
 
 se_20_rm <- sef_names[sef_perct >= 0.2] %>%
   setNames(sef_labels[sef_perct >= 0.2]) %>%
@@ -262,7 +307,7 @@ start <- items_add %>%
 ### Time on antidepressants
 
 dur <- items_add %>%
-  select(contains("DUR")) %>%
+  select(contains(".DUR")) %>%
   # First antidepressant was approved 62 years ago. See docs.
   map_df(apply_lim, 0, 62) %>%
   rowScore()
@@ -315,14 +360,18 @@ n_best <- rowSums(best, na.rm = T) %>%
 dat <- tibble(
   sex = dat_list[["dem"]][["Sex"]],
   age = dat_list[["dem"]][["Age"]] %>% apply_lim(18, 110),
+  smoke,
+  employment,
+  martial,
   score_gad,
   score_phq,
-  # score_cidid,
-  score_cidia,
+  score_cidid = dat_list[["cidid.diag"]][[2]],
+  score_cidia = dat_list[["cidia.diag"]][[2]],
   # score_cidip,
   # score_saspd,
   score_pad,
   score_mhd,
+  score_wsas,
   fam,
   bmi,
   # smoke_perday,
@@ -345,6 +394,10 @@ dat <- tibble(
   mutate_if(is.numeric, ~ ifelse(!is.finite(.), NA, .))
 
 dat_uncut <- dat
+
+dat <- dat %>%
+  bind_cols(mhd, sef_index)
+
 cache("dat_uncut")
 
 dat <- dat %>%
@@ -359,13 +412,17 @@ cache("dat")
 labels <- c(
   "Sex",
   "Age",
+  "Smoking",
+  "Employment",
+  "Martial",
   "Current anxiety (GAD)",
   "Current depression (PHQ)",
-  # "Lifetime depression",
+  "Lifetime depression (CIDID)",
   "Lifetime anxiety (CIDIA)",
   # "Personality disorder",
   "Panic disorder symptoms (N) (PAD)",
   "Psychiatric diagnoses (N) (MHD)",
+  "Work and adjustment (WSAS)",
   "Relatives with psychitric diagnoses (N) (FAM)",
   "BMI (DEM)",
   "Mean effectiveness (MED)",
@@ -378,14 +435,79 @@ labels <- c(
   "Likelihood of remission (MED)",
   "Likelihood of intolerance (MED)",
   "Mean improvement duration (MED)",
-  "Overall Benefits (MED)",
+  "Overall benefits (MED)",
   "Overall side effects (MED)",
-  "Number of Best Aspects (MED)"
+  "Number of Best Aspects (MED)",
   # "Cigarettes Per Day",
   # "Second Hand Smoking",
-  # "Smoking Years"
+  # "Smoking Years",
+  "MDD",
+  # "Perinatal depression",
+  # "PMDD",
+  "Bipolar",
+  "GAD",
+  "Social anxiety",
+  "Specifc phobia",
+  "Agoraphobia",
+  "Panic disorder",
+  "Panic attacks",
+  "PTSD",
+  "OCD",
+  "BDD",
+  "AN",
+  "Atypical AN",
+  "BN",
+  "BED",
+  "Schizophrenia",
+  "Schizoaffective",
+  "Psychosis",
+  "Personality Disorder",
+  "ASD",
+  "ADHD",
+  sef_labels
 ) %>% setNames(colnames(dat))
-
 cache("labels")
 
 cache("dat_list")
+
+# Determine who are taking antidepressants cureently and are depressed
+start <- items_add %>%
+  select(contains("START")) %>%
+  map_df(apply_lim, 8, 100)
+
+dur <- items_add %>%
+  select(contains(".DUR")) %>%
+  # First antidepressant was approved 62 years ago. See docs.
+  map_df(apply_lim, 0, 62)
+
+last_treatment_diff <- dat_uncut$age - map2_df(start, dur, ~ .x + .y)
+last_treatment_diff <- map_df(map2_df(start, dur, ~ .x + .y), ~ dat_uncut$age - .x)
+
+last_treatment_now <- apply(last_treatment_diff, 1, function(x) {
+  x[which.min(x)[1]]
+}) %>% unlist()
+
+last_treatment_now <- last_treatment_now <= 0
+
+cache("last_treatment_now")
+
+# Find percentage of discontinuation  for each antidepressants
+dat_med <- dat_list[["med"]]
+add_stop <- dat_med[grep("ADD.*SE\\.STOP", names(dat_med))]
+
+stop_pert <- colMeans(add_stop, na.rm = T)
+stop_order <- order(stop_pert, decreasing = T)
+stop_n <- map_dbl(add_stop, ~ sum(!is.na(.)))
+
+stop_n <- stop_n[stop_order]
+stop_pert <- stop_pert[stop_order]
+
+cache("stop_n")
+cache("stop_pert")
+
+
+# sum(table(last_treatment_now[dat_uncut$score_phq >= 10 | dat_uncut$score_gad >= 10])[1:15])
+
+# early_dur <- apply(dur, 1, function(x) {
+#   x[which.min(x)]
+# }) %>% unlist()

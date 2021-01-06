@@ -4,6 +4,7 @@ load.project()
 library(polycor)
 library(ggcorrplot)
 
+
 hists_var_uncut <- dat_uncut %>%
   select(mean_eff, intolerance, remission) %>%
   plyr::rename(labels[names(labels) %in% colnames(.)]) %>%
@@ -66,21 +67,20 @@ cache("cor_plot")
 # Note that if we don't use range this can be changed to pivot_longer
 # followed by pivot_wider which is more straightforward
 
-gender_t_test <- imap_dbl(dat, function(col, name) {
-  if (name == "sex") {
-    return(NA)
+gender_t_test <- imap_dbl(
+  bind_cols(n_med = n_med, dat[-1]), function(col, name) {
+    male <- as.numeric(col[dat[["sex"]] == "Male"])
+    female <- as.numeric(col[dat[["sex"]] == "Female"])
+    t.test(male, female)$p.value
   }
-  male <- as.numeric(col[dat[["sex"]] == "Male"])
-  female <- as.numeric(col[dat[["sex"]] == "Female"])
-  t.test(male, female)$p.value
-})
+)
 
 sum_tab <- dat %>%
   mutate_at(vars(-sex), as.numeric) %>%
   # Insert n_med
   mutate(n_med = n_med) %>%
   # Reorder
-  select(age, "Number of antidepressants taken" = n_med, everything()) %>%
+  select("Number of antidepressants taken" = n_med, age, everything()) %>%
   filter(!is.na(sex)) %>%
   pivot_longer(-sex) %>%
   # Change name to an ordered factor so summarize does not sort them
@@ -105,10 +105,10 @@ sum_tab <- dat %>%
   ) %>%
   ungroup() %>%
   mutate(
-    valid_pct = (n_valid_male + n_valid_female) / nrow(dat),
+    valid_pct = (n_valid_male + n_valid_female) / nrow(.),
     pval = gender_t_test
   ) %>%
   # Reorder columns
-  select(name, matches("_male"), pval, matches("_female"))
+  select(name, matches("_male"), pval, matches("_female"), valid_pct)
 
 cache("sum_tab")

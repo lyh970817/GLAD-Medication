@@ -42,6 +42,14 @@ longer medication history report fewer side effects
 depression report more side effects than individuals with non-anxious depression
 [see @JAZKDWJ7#Ionescu_Etal_2014_Pharmacologic for a review].
 
+There has been an ongoing attempt to identify correlates of response to
+antidepressant. Most research center around using various biomarkers from,
+for example, neuroimaging or pharmacogenetics data
+
+There have been several investigations into identifying non-physiological
+correlates of resposne to antidepressants.
+
+
 Little phenotypic epidemiological research has investigated the relationship
 between antidepressant effectiveness and side effects. However, there are clear
 theoretical underpinnings that the same receptors might be responsible for side
